@@ -1,0 +1,37 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/CMakeFiles/Serial_Port_Pack+SerialPortPack-build"
+		},
+		{
+			"file" : "C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/CMakeFiles/Serial_Port_Pack+SerialPortPack-build.rule"
+		},
+		{
+			"file" : "C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-build.rule"
+		},
+		{
+			"file" : "C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-configure.rule"
+		},
+		{
+			"file" : "C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-patch.rule"
+		},
+		{
+			"file" : "C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-update.rule"
+		},
+		{
+			"file" : "C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-download.rule"
+		},
+		{
+			"file" : "C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-mkdir.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"Serial_Port_Pack+SerialPortPack"
+		],
+		"name" : "Serial_Port_Pack+SerialPortPack-build"
+	}
+}

@@ -1,0 +1,16 @@
+# Target labels
+ Serial_Port_Pack+SerialPortPack
+# Source files and their labels
+C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/CMakeFiles/Serial_Port_Pack+SerialPortPack
+C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/CMakeFiles/Serial_Port_Pack+SerialPortPack.rule
+C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/CMakeFiles/Serial_Port_Pack+SerialPortPack-complete.rule
+C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-build.rule
+C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-configure.rule
+C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-database.rule
+C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-download.rule
+C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-executes.rule
+C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-install.rule
+C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-mkdir.rule
+C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-patch.rule
+C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-test.rule
+C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/Serial_Port_Pack+SerialPortPack/src/Serial_Port_Pack+SerialPortPack-stamp/Serial_Port_Pack+SerialPortPack-update.rule

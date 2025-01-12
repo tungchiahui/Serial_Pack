@@ -1,0 +1,18 @@
+build-idx:
+  generated-by: csolution version 2.7.0
+  csolution: Serial_Port_Pack.csolution.yml
+  tmpdir: tmp
+  cprojects:
+    - cproject: Serial_Port_Pack.cproject.yml
+  cbuilds:
+    - cbuild: Serial_Port_Pack+SerialPortPack.cbuild.yml
+      project: Serial_Port_Pack
+      configuration: +SerialPortPack
+      messages:
+        info:
+          - Serial_Port_Pack.cbuild-pack.yml - file is already up-to-date
+          - SerialPortPack.cbuild-run.yml - file is already up-to-date
+          - Serial_Port_Pack+SerialPortPack.cbuild.yml - file is already up-to-date
+      packs-unused:
+        - pack: ARM::CMSIS-DSP@1.16.2
+        - pack: ARM::CMSIS-NN@7.0.0

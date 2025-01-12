@@ -1,0 +1,24 @@
+cbuild-run:
+  generated-by: csolution version 2.7.0
+  solution: Serial_Port_Pack.csolution.yml
+  target-type: SerialPortPack
+  compiler: AC6
+  device: STMicroelectronics::STM32F407VETx
+  device-pack: Keil::STM32F4xx_DFP@3.0.0
+  programming:
+    - algorithm: ${CMSIS_PACK_ROOT}/Keil/STM32F4xx_DFP/3.0.0/CMSIS/Flash/STM32F4xx_512.FLM
+      start: 0x08000000
+      size: 0x00080000
+      default: true
+    - algorithm: ${CMSIS_PACK_ROOT}/Keil/STM32F4xx_DFP/3.0.0/CMSIS/Flash/STM32F40xxx_41xxx_OPT.FLM
+      start: 0x1FFFC000
+      size: 0x00000004
+    - algorithm: ${CMSIS_PACK_ROOT}/Keil/STM32F4xx_DFP/3.0.0/CMSIS/Flash/STM32F4xx_OTP.FLM
+      start: 0x1FFF7800
+      size: 0x00000210
+  system-descriptions:
+    - file: ${CMSIS_PACK_ROOT}/Keil/STM32F4xx_DFP/3.0.0/CMSIS/SVD/STM32F407.svd
+      type: svd
+  output:
+    - file: out/Serial_Port_Pack/SerialPortPack/Serial_Port_Pack.axf
+      type: elf
