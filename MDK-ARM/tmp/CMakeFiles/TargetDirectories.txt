@@ -1,8 +1,0 @@
-C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/CMakeFiles/database.dir
-C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/CMakeFiles/Serial_Port_Pack+SerialPortPack.dir
-C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/CMakeFiles/Serial_Port_Pack+SerialPortPack-build.dir
-C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/CMakeFiles/Serial_Port_Pack+SerialPortPack-configure.dir
-C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/CMakeFiles/Serial_Port_Pack+SerialPortPack-executes.dir
-C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/CMakeFiles/Serial_Port_Pack+SerialPortPack-database.dir
-C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/CMakeFiles/edit_cache.dir
-C:/Users/tung/UserFolder/XiaomiCloud/Work/Source/ST-Cube-MX/Serial_Pack/MDK-ARM/tmp/CMakeFiles/rebuild_cache.dir

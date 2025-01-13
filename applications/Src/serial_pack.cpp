@@ -15,11 +15,26 @@ uint8_t rx_buffer[1];
 extern "C"
 void Transmit_task(void const * argument)
 {
-
+    bool bool_buffer[] = {1, 0, 1, 0};
+    int8_t int8_buffer[] = {0x11,0x22};
+    int16_t int16_buffer[] = {2000,6666};
+    // int32_t int32_buffer[] = {305419896};
+    fp32 fp32_buffer[] = {3.5f};
 	
+    //绝对延时
+    uint32_t PreviousWakeTime = osKernelSysTick();
+
 	for(;;)
 	{
-		osDelay(500);
+        // 发送数据（不发送 int32_buffer）
+        serial_pack_.tx.Data_Pack(0x01, 
+                                 bool_buffer, sizeof(bool_buffer) / sizeof(bool),
+                                 int8_buffer, sizeof(int8_buffer) / sizeof(int8_t),
+                                 int16_buffer, sizeof(int16_buffer) / sizeof(int16_t),
+                                 nullptr, 0,
+                                 fp32_buffer, sizeof(fp32_buffer) / sizeof(fp32));  
+		// osDelay(500);
+        osDelayUntil(&PreviousWakeTime,500);
 	}
 }
 
@@ -33,25 +48,124 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	}
 }
 
-uint8_t buffer[SERIAL_RX_TOTAL_SIZE + 7];
-
 bool SERIAL::RX::Data_Apply(void)
 {
 /*  可使用的数据
+	this->data.cmd;
 	this->data.bool_buffer[i];
 	this->data.int8_buffer[i];
 	this->data.int16_buffer[i];
 	this->data.int32_buffer[i];
 	this->data.fp32_buffer[i];
 */
-
-	for(int16_t i = 0;i < (SERIAL_RX_TOTAL_SIZE + 7);i++)
-	{
-		buffer[i] = this->data.buffer[i];
-	}
 	
 	return true;
 }
+
+bool SERIAL::TX::Serial_Transmit(uint8_t *pData, uint16_t Size)
+{
+    //发送函数（在不同的机器上要用不同的函数替换）
+    HAL_StatusTypeDef flags =  HAL_UART_Transmit(&huart2,pData,Size,HAL_MAX_DELAY);
+    if(flags != HAL_OK)
+    {
+        return false;
+    }
+    return true;
+}
+
+
+bool SERIAL::TX::Data_Pack(uint8_t cmd, 
+                           bool *bool_buffer, int16_t bool_num,
+                           int8_t *int8_buffer, int16_t int8_num,
+                           int16_t *int16_buffer, int16_t int16_num,
+                           int32_t *int32_buffer, int16_t int32_num,
+                           fp32 *fp32_buffer, int16_t fp32_num)
+{
+    uint8_t *ptr = this->data.buffer;
+
+    // 包头
+    *ptr++ = 0xA5;
+    *ptr++ = 0x5A;
+
+    // 计算有效数据的总长度
+    int16_t data_length = ((bool_num + 7) / 8) +  // bool 数据占用的字节数
+                          (int8_num * 1) +        // int8_t 数据占用的字节数
+                          (int16_num * 2) +       // int16_t 数据占用的字节数
+                          (int32_num * 4) +       // int32_t 数据占用的字节数
+                          (fp32_num * 4);         // fp32 数据占用的字节数
+
+    // 有效值字节总长度
+    *ptr++ = static_cast<uint8_t>(data_length);
+
+    // 功能码
+    *ptr++ = cmd;
+
+    // 打包 bool 数据
+    int bool_byte_count = (bool_num + 7) / 8; // 计算所需字节数（向上取整）
+    for (int i = 0; i < bool_byte_count; ++i) 
+    {
+        uint8_t byte = 0;
+        for (int j = 0; j < 8; ++j) 
+        {
+            if (i * 8 + j < bool_num && bool_buffer[i * 8 + j]) 
+            {
+                byte |= (1 << j);
+            }
+        }
+        *ptr++ = byte;
+    }
+
+    // 打包 int8_t 数据
+    for (int i = 0; i < int8_num; ++i) 
+    {
+        *ptr++ = static_cast<uint8_t>(int8_buffer[i]);
+    }
+
+    // 打包 int16_t 数据
+    for (int i = 0; i < int16_num; ++i) 
+    {
+        *ptr++ = static_cast<uint8_t>((int16_buffer[i] >> 8) & 0xFF);
+        *ptr++ = static_cast<uint8_t>(int16_buffer[i] & 0xFF);
+    }
+
+    // 打包 int32_t 数据
+    for (int i = 0; i < int32_num; ++i) 
+    {
+        *ptr++ = static_cast<uint8_t>((int32_buffer[i] >> 24) & 0xFF);
+        *ptr++ = static_cast<uint8_t>((int32_buffer[i] >> 16) & 0xFF);
+        *ptr++ = static_cast<uint8_t>((int32_buffer[i] >> 8) & 0xFF);
+        *ptr++ = static_cast<uint8_t>(int32_buffer[i] & 0xFF);
+    }
+
+    // 打包 fp32 数据
+    for (int i = 0; i < fp32_num; ++i) 
+    {
+        uint8_t *bytes = reinterpret_cast<uint8_t*>(&fp32_buffer[i]);
+        *ptr++ = bytes[3];
+        *ptr++ = bytes[2];
+        *ptr++ = bytes[1];
+        *ptr++ = bytes[0];
+    }
+
+    // 计算 CRC16 校验码
+    //CRC16 只需要计算有效数据部分
+    uint16_t crc = serial_pack_.checksum.__CRC16_Check(this->data.buffer + 4, ptr - this->data.buffer - 4);
+    *ptr++ = static_cast<uint8_t>((crc >> 8) & 0xFF);
+    *ptr++ = static_cast<uint8_t>(crc & 0xFF);
+
+    // 包尾
+    *ptr++ = 0xFF;
+
+    // 计算总长度
+    uint16_t total_length = ptr - this->data.buffer;
+
+    // 发送数据
+    this->Serial_Transmit(this->data.buffer, total_length);
+
+    return true;
+}
+
+
 
 
 bool SERIAL::RX::Data_Analysis(uint8_t *msg_data,int16_t bool_num,int16_t int8_num,int16_t int16_num,int16_t int32_num,int16_t fp32_num,int16_t total_size)
@@ -60,7 +174,6 @@ bool SERIAL::RX::Data_Analysis(uint8_t *msg_data,int16_t bool_num,int16_t int8_n
 	static int16_t rx_cnt = 0;
 	static uint8_t finded_flag = 0;
 	static int16_t valid_data_len = 0;
-	static uint8_t cmd = 0;
 
     // 检测包头 0xA55A
     if (finded_flag == 0 && *msg_data == 0xA5)  // 检测到第一个包头字节
@@ -95,7 +208,7 @@ bool SERIAL::RX::Data_Analysis(uint8_t *msg_data,int16_t bool_num,int16_t int8_n
             rx_cnt = 0;       // 重置接收计数器
 
             //获取功能码
-            cmd = this->data.buffer[3];
+            this->data.cmd = this->data.buffer[3];
 			// 提取接收到的 CRC16（倒数第三和倒数第二字节）
             //倒数第三个是高8位
             //倒数第二个是低8位
@@ -107,13 +220,14 @@ bool SERIAL::RX::Data_Analysis(uint8_t *msg_data,int16_t bool_num,int16_t int8_n
             // 校验 CRC16 和包尾
             if (received_crc == CRC16_ && this->data.buffer[valid_data_len + 6] == 0xFF)  // 确认包尾是 0xFF
             {
+                //数据分离
+                this->Buffer_Sep();
                 // 数据处理
                 this->Data_Apply();  // 处理数据，赋予实际意义
                 return true;
             }
 		}
 	}
-
 	// 如果验证失败，返回 false
     return false;
 }
@@ -122,18 +236,16 @@ bool SERIAL::RX::Data_Analysis(uint8_t *msg_data,int16_t bool_num,int16_t int8_n
 
 bool SERIAL::RX::Buffer_Sep(void)
 {
-	// 假设 msg_data 指向接收到的数据缓冲区的起始位置。
-    uint8_t *ptr = this->data.buffer;
+	// 假设 msg_data 指向接收到的数据缓冲区的有效数据值的起始位置。
+    uint8_t *ptr = this->data.buffer + 4;
 
 	// 解析 bool
-		for (int i = 0; i < SERIAL_RX_BOOL_NUM; ++i) 
-		{
-			this->data.bool_buffer[i] = (*ptr & (1 << (i % 8))) != 0;
-			if (i % 8 == 7 || i == SERIAL_RX_BOOL_NUM - 1) 
-				{
-					++ptr; // 每8个布尔值或到最后一个布尔值时，移动到下一个字节
-				}
-		}
+    int bool_byte_count = (SERIAL_RX_BOOL_NUM + 7) / 8; // 计算所需字节数（向上取整）
+    for (int i = 0; i < SERIAL_RX_BOOL_NUM; ++i) 
+    {
+        this->data.bool_buffer[i] = (ptr[i / 8] & (1 << (i % 8))) != 0;
+    }
+    ptr += bool_byte_count; // 移动指针到下一个数据段
 
 
 	// 解析 int8_t
@@ -146,28 +258,28 @@ bool SERIAL::RX::Buffer_Sep(void)
     // 解析 int16_t
     for (int i = 0; i < SERIAL_RX_INT16_NUM; ++i) 
 	{
-		    uint8_t DL = *ptr++;
-        uint8_t DH = *ptr++;
+				uint8_t DH = *ptr++;
+        uint8_t DL = *ptr++;
         this->data.int16_buffer[i] = serial_pack_.convert.Bytes2Short(DH, DL);
     }
     
     // 解析 int32_t
     for (int i = 0; i < SERIAL_RX_INT32_NUM; ++i) 
 	{
-        uint8_t DL = *ptr++;
-        uint8_t D3 = *ptr++;
-        uint8_t D2 = *ptr++;
         uint8_t DH = *ptr++;
+        uint8_t D2 = *ptr++;
+        uint8_t D3 = *ptr++;
+        uint8_t DL = *ptr++;
         this->data.int32_buffer[i] = serial_pack_.convert.Bytes2Int(DH, D2, D3, DL);
     }
     
     // 解析 fp32
     for (int i = 0; i < SERIAL_RX_FP32_NUM; ++i) 
 	{
-        uint8_t DL = *ptr++;
-        uint8_t D3 = *ptr++;
-        uint8_t D2 = *ptr++;
         uint8_t DH = *ptr++;
+        uint8_t D2 = *ptr++;
+        uint8_t D3 = *ptr++;
+        uint8_t DL = *ptr++;
         this->data.fp32_buffer[i] = serial_pack_.convert.Bytes2Fp32(DH, D2, D3, DL);
     }
 

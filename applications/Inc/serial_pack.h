@@ -9,28 +9,30 @@ extern "C"
 #include "struct_typedef.h"
 
 /*接收数据数量*/
-#define SERIAL_RX_BOOL_NUM 	0
-#define SERIAL_RX_INT8_NUM 	4
-#define SERIAL_RX_INT16_NUM 	0
-#define SERIAL_RX_INT32_NUM 	0
-#define SERIAL_RX_FP32_NUM 	0
+#define SERIAL_RX_BOOL_NUM 	16
+#define SERIAL_RX_INT8_NUM 	2
+#define SERIAL_RX_INT16_NUM 	2
+#define SERIAL_RX_INT32_NUM 	1
+#define SERIAL_RX_FP32_NUM 	1
 #define SERIAL_RX_TOTAL_SIZE  (((SERIAL_RX_BOOL_NUM + 7) / 8) + \
                         (SERIAL_RX_INT8_NUM * 1) + \
                         (SERIAL_RX_INT16_NUM * 2) + \
                         (SERIAL_RX_INT32_NUM * 4) + \
                         (SERIAL_RX_FP32_NUM * 4))
 
-/*发送数据数量*/
-#define SERIAL_TX_BOOL_NUM      0
-#define SERIAL_TX_INT8_NUM      0
-#define SERIAL_TX_INT16_NUM     0
-#define SERIAL_TX_INT32_NUM     0
-#define SERIAL_TX_FP32_NUM      0
-#define SERIAL_TX_TOTAL_SIZE    (((SERIAL_TX_BOOL_NUM + 7) / 8) + \
-                            (SERIAL_TX_INT8_NUM * 1) + \
-                            (SERIAL_TX_INT16_NUM * 2) + \
-                            (SERIAL_TX_INT32_NUM * 4) + \
-                            (SERIAL_TX_FP32_NUM * 4))
+// 最大发送数据长度为 100 字节
+#define MAX_DATA_LENGTH 100 
+// /*发送数据数量*/
+// #define SERIAL_TX_BOOL_NUM      0
+// #define SERIAL_TX_INT8_NUM      0
+// #define SERIAL_TX_INT16_NUM     0
+// #define SERIAL_TX_INT32_NUM     0
+// #define SERIAL_TX_FP32_NUM      0
+// #define SERIAL_TX_TOTAL_SIZE    (((SERIAL_TX_BOOL_NUM + 7) / 8) + \
+//                             (SERIAL_TX_INT8_NUM * 1) + \
+//                             (SERIAL_TX_INT16_NUM * 2) + \
+//                             (SERIAL_TX_INT32_NUM * 4) + \
+//                             (SERIAL_TX_FP32_NUM * 4))
 
 
 typedef struct
@@ -50,6 +52,7 @@ class SERIAL
 		{
 			public:
 			uint8_t buffer[SERIAL_RX_TOTAL_SIZE + 7];
+			uint8_t cmd;
 /****************************接受到的数据类型*******************************/
 			bool bool_buffer[SERIAL_RX_BOOL_NUM];
 			int8_t int8_buffer[SERIAL_RX_INT8_NUM];
@@ -69,14 +72,21 @@ class SERIAL
 		class DATA
 		{
 			public:
-			uint8_t buffer[SERIAL_TX_TOTAL_SIZE + 7];
+			uint8_t buffer[MAX_DATA_LENGTH + 7];
 /****************************准备发送的数据类型*******************************/
-			bool bool_buffer[SERIAL_TX_BOOL_NUM];
-			int8_t int8_buffer[SERIAL_TX_INT8_NUM];
-			int16_t int16_buffer[SERIAL_TX_INT16_NUM];
-			int32_t int32_buffer[SERIAL_TX_INT32_NUM];
-			fp32 fp32_buffer[SERIAL_TX_FP32_NUM];
+// 			bool bool_buffer[SERIAL_TX_BOOL_NUM];
+// 			int8_t int8_buffer[SERIAL_TX_INT8_NUM];
+// 			int16_t int16_buffer[SERIAL_TX_INT16_NUM];
+// 			int32_t int32_buffer[SERIAL_TX_INT32_NUM];
+// 			fp32 fp32_buffer[SERIAL_TX_FP32_NUM];
 		}data;
+		bool Data_Pack(uint8_t cmd, 
+                        bool *bool_buffer, int16_t bool_num,
+                        int8_t *int8_buffer, int16_t int8_num,
+                        int16_t *int16_buffer, int16_t int16_num,
+                        int32_t *int32_buffer, int16_t int32_num,
+                        fp32 *fp32_buffer, int16_t fp32_num);
+		bool Serial_Transmit(uint8_t *pData, uint16_t Size);
 
 	}tx;
 
