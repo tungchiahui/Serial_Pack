@@ -10,13 +10,11 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(serial_driver REQUIRED)
 
-add_executable(demo01_uart src/demo01_uart.cpp)
+add_executable(demo01_uart src/demo01_uart.cpp src/serial_pack.cpp)  #需要修改这里
 
 target_include_directories(demo01_uart PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>)
-
-
 
 target_compile_features(demo01_uart PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 ament_target_dependencies(

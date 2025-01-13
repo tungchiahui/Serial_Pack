@@ -1,4 +1,4 @@
 CompileFlags:
   CompilationDatabase: >-
-    c:\Users\tung\UserFolder\XiaomiCloud\Work\Source\ST-Cube-MX\Serial_Pack\MCU_Example\MDK-ARM\out\Serial_Port_Pack\SerialPortPack
+    /home/tungchiahui/UserFloder/mysource/MCU/Serial_Pack/MCU_Example/MDK-ARM/out/Serial_Port_Pack/SerialPortPack
   Add: []

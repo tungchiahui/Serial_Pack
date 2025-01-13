@@ -1,6 +1,11 @@
 #include "rclcpp/rclcpp.hpp"
 #include "serial_driver/serial_driver.hpp"
+#include <cstdint>
 #include <string>
+#include "cpp01_serial/serial_pack.h"
+
+
+extern std::vector<uint8_t> data_buffer;
 
 class Serial_Node : public rclcpp::Node
 {
@@ -25,6 +30,7 @@ public:
     // 初始化串口
     try
     {
+      //开1个线程去处理异步
       io_context_ = std::make_shared<drivers::common::IoContext>(1);
       // 初始化 serial_driver_
       serial_driver_ = std::make_shared<drivers::serial_driver::SerialDriver>(*io_context_);
@@ -41,10 +47,10 @@ public:
       return;
     }
 
-        // 设置发送定时器
-    transmit_timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(5000),
-        std::bind(&Serial_Node::send_message_timer_callback, this));
+    // // 设置发送定时器
+    // transmit_timer_ = this->create_wall_timer(
+    //     std::chrono::milliseconds(10000),
+    //     std::bind(&Serial_Node::send_message_timer_callback, this));
 
     async_receive_message();   //进入异步接收
   }
@@ -54,16 +60,31 @@ private:
 
   void send_message_timer_callback()
   {
-    // 发送一串字符串
-    const std::string transmitted_message = "Hello from ROS 2!";
-    transmit_data_buffer = std::vector<uint8_t>(transmitted_message.begin(), transmitted_message.end());
-    // std::vector<uint8_t> hex_data = {0x48, 0x65, 0x6C, 0x6C, 0x6F}; // "Hello" in ASCII
+    bool bool_buffer[] = {1, 0, 1, 0};
+    int8_t int8_buffer[] = {0x11,0x22};
+    int16_t int16_buffer[] = {2000,6666};
+    // int32_t int32_buffer[] = {305419896};
+    fp32 fp32_buffer[] = {3.5f};
+
+    //由于ROS2中node为局部变量，所以只能在node中调用send函数，所以Serial_Transmit只负责处理data_buffer。
+    serial_pack_.tx.Data_Pack(0x01, 
+                                 bool_buffer, sizeof(bool_buffer) / sizeof(bool),
+                                 int8_buffer, sizeof(int8_buffer) / sizeof(int8_t),
+                                 int16_buffer, sizeof(int16_buffer) / sizeof(int16_t),
+                                 nullptr, 0,
+                                 fp32_buffer, sizeof(fp32_buffer) / sizeof(fp32));
+
     auto port = serial_driver_->port();
 
     try
     {
-      size_t bytes_transmit_size = port->send(transmit_data_buffer);
-      RCLCPP_INFO(this->get_logger(), "Transmitted: %s (%ld bytes)", transmitted_message.c_str(), bytes_transmit_size);
+      size_t bytes_size = port->send(data_buffer);
+      RCLCPP_INFO(this->get_logger(), "Transmitted: ");
+      for (size_t i = 0; i < data_buffer.size(); ++i) 
+      {
+        RCLCPP_INFO(this->get_logger(), "0x%02X ", data_buffer[i]);  //以十六进制格式打印每个字节
+      }
+      RCLCPP_INFO(this->get_logger(), "(%ld bytes)", bytes_size);
     }
     catch(const std::exception &ex)
     {
@@ -80,9 +101,22 @@ private:
     {
         if (size > 0)
         {
+          serial_pack_.rx.data.int32_buffer[0] = 0;
+          for(int16_t i = 0;i < (int16_t)size;++i)
+          {
+            uint8_t data_buffer = data[i];
             // 处理接收到的数据
-            std::string received_message(data.begin(), data.begin() + size);
-            RCLCPP_INFO(this->get_logger(), "Received: %s (%ld bytes)", received_message.c_str(),size);
+            serial_pack_.rx.Data_Analysis(
+              &data_buffer,
+            16,
+            2,
+            2,
+            1,
+            1);
+          }
+          //由于在ROS2中，node是局部变量，所以发布方只能在node类里，故Data_Apply不写任何东西，直接在接收下面的回调函数里实现功能。
+          RCLCPP_INFO(this->get_logger(),"接收到的整形是:%d",serial_pack_.rx.data.int32_buffer[0]);
+
         }
         // 继续监听新的数据
         async_receive_message();
