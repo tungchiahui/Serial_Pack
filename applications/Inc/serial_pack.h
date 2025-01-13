@@ -1,6 +1,7 @@
 #ifndef __SERIAL_PACK_H_
 #define __SERIAL_PACK_H_
 
+//在非C语言环境下要注释掉下面这四行
 #ifdef __cplusplus
 extern "C"
 {
@@ -109,6 +110,7 @@ class SERIAL
 
 extern SERIAL serial_pack_;
 
+//在非C语言环境下要注释掉下面这三行
 #ifdef __cplusplus
 }
 #endif
