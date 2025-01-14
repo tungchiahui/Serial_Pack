@@ -70,8 +70,8 @@ project:
         - file: startup_stm32f407xx.s
     - group: Application/User/Core
       files:
-        - file: ../Core/Src/main.c
         - file: ../Core/Src/startup_main.cpp
+        - file: ../Core/Src/main.c
         - file: ../Core/Src/gpio.c
         - file: ../Core/Src/freertos.c
         - file: ../Core/Src/usart.c

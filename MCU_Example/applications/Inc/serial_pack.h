@@ -9,38 +9,22 @@ extern "C"
 
 #include "struct_typedef.h"
 
-/*接收数据数量*/
-#define SERIAL_RX_BOOL_NUM 	16
-#define SERIAL_RX_INT8_NUM 	2
-#define SERIAL_RX_INT16_NUM 	2
-#define SERIAL_RX_INT32_NUM 	1
-#define SERIAL_RX_FP32_NUM 	1
-#define SERIAL_RX_TOTAL_SIZE  (((SERIAL_RX_BOOL_NUM + 7) / 8) + \
-                        (SERIAL_RX_INT8_NUM * 1) + \
-                        (SERIAL_RX_INT16_NUM * 2) + \
-                        (SERIAL_RX_INT32_NUM * 4) + \
-                        (SERIAL_RX_FP32_NUM * 4))
+/*最大接收数据数量*/
+#define MAX_SERIAL_RX_BOOL_NUM 		32
+#define MAX_SERIAL_RX_INT8_NUM 		10
+#define MAX_SERIAL_RX_INT16_NUM 	10
+#define MAX_SERIAL_RX_INT32_NUM 	10
+#define MAX_SERIAL_RX_FP32_NUM 		10
+#define MAX_SERIAL_RX_TOTAL_SIZE  (((MAX_SERIAL_RX_BOOL_NUM + 7) / 8) + \
+                        (MAX_SERIAL_RX_INT8_NUM * 1) + \
+                        (MAX_SERIAL_RX_INT16_NUM * 2) + \
+                        (MAX_SERIAL_RX_INT32_NUM * 4) + \
+                        (MAX_SERIAL_RX_FP32_NUM * 4))
 
 // 最大发送数据长度为 100 字节
-#define MAX_DATA_LENGTH 100 
-// /*发送数据数量*/
-// #define SERIAL_TX_BOOL_NUM      0
-// #define SERIAL_TX_INT8_NUM      0
-// #define SERIAL_TX_INT16_NUM     0
-// #define SERIAL_TX_INT32_NUM     0
-// #define SERIAL_TX_FP32_NUM      0
-// #define SERIAL_TX_TOTAL_SIZE    (((SERIAL_TX_BOOL_NUM + 7) / 8) + \
-//                             (SERIAL_TX_INT8_NUM * 1) + \
-//                             (SERIAL_TX_INT16_NUM * 2) + \
-//                             (SERIAL_TX_INT32_NUM * 4) + \
-//                             (SERIAL_TX_FP32_NUM * 4))
+#define MAX_DATA_LENGTH 100
 
 
-typedef struct
-{
-	int16_t ch[4];
-	bool s[2];
-}Udp_rc_t;
 
 
 class SERIAL
@@ -52,18 +36,18 @@ class SERIAL
 		class DATA
 		{
 			public:
-			uint8_t buffer[SERIAL_RX_TOTAL_SIZE + 7];
+			uint8_t buffer[MAX_SERIAL_RX_TOTAL_SIZE + 7];
 			uint8_t cmd;
 /****************************接受到的数据类型*******************************/
-			bool bool_buffer[SERIAL_RX_BOOL_NUM];
-			int8_t int8_buffer[SERIAL_RX_INT8_NUM];
-			int16_t int16_buffer[SERIAL_RX_INT16_NUM];
-			int32_t int32_buffer[SERIAL_RX_INT32_NUM];
-			fp32 fp32_buffer[SERIAL_RX_FP32_NUM];
+			bool bool_buffer[MAX_SERIAL_RX_BOOL_NUM];
+			int8_t int8_buffer[MAX_SERIAL_RX_INT8_NUM];
+			int16_t int16_buffer[MAX_SERIAL_RX_INT16_NUM];
+			int32_t int32_buffer[MAX_SERIAL_RX_INT32_NUM];
+			fp32 fp32_buffer[MAX_SERIAL_RX_FP32_NUM];
 		}data;
 
-		bool Data_Analysis(uint8_t *msg_data,int16_t bool_num = SERIAL_RX_BOOL_NUM,int16_t int8_num = SERIAL_RX_INT8_NUM,int16_t int16_num = SERIAL_RX_INT16_NUM,int16_t int32_num = SERIAL_RX_INT32_NUM,int16_t fp32_num = SERIAL_RX_FP32_NUM,int16_t total_size = SERIAL_RX_TOTAL_SIZE);
-		bool Buffer_Sep(void);
+		bool Data_Analysis(uint8_t *msg_data,uint8_t cmd,int16_t bool_num,int16_t int8_num,int16_t int16_num,int16_t int32_num,int16_t fp32_num);
+		bool Buffer_Sep(int16_t bool_num,int16_t int8_num,int16_t int16_num,int16_t int32_num,int16_t fp32_num);
 		bool Data_Apply(void);
 	}rx;
 
@@ -74,12 +58,7 @@ class SERIAL
 		{
 			public:
 			uint8_t buffer[MAX_DATA_LENGTH + 7];
-/****************************准备发送的数据类型*******************************/
-// 			bool bool_buffer[SERIAL_TX_BOOL_NUM];
-// 			int8_t int8_buffer[SERIAL_TX_INT8_NUM];
-// 			int16_t int16_buffer[SERIAL_TX_INT16_NUM];
-// 			int32_t int32_buffer[SERIAL_TX_INT32_NUM];
-// 			fp32 fp32_buffer[SERIAL_TX_FP32_NUM];
+
 		}data;
 		bool Data_Pack(uint8_t cmd, 
                         bool *bool_buffer, int16_t bool_num,

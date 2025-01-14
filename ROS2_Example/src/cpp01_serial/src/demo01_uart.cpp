@@ -101,13 +101,13 @@ private:
     {
         if (size > 0)
         {
-          serial_pack_.rx.data.int32_buffer[0] = 0;
           for(int16_t i = 0;i < (int16_t)size;++i)
           {
             uint8_t data_buffer = data[i];
             // 处理接收到的数据
             serial_pack_.rx.Data_Analysis(
               &data_buffer,
+              0x01,
             16,
             2,
             2,
@@ -115,7 +115,10 @@ private:
             1);
           }
           //由于在ROS2中，node是局部变量，所以发布方只能在node类里，故Data_Apply不写任何东西，直接在接收下面的回调函数里实现功能。
-          RCLCPP_INFO(this->get_logger(),"接收到的整形是:%d",serial_pack_.rx.data.int32_buffer[0]);
+          if(serial_pack_.rx.data.cmd == 0x01)
+          {
+            RCLCPP_INFO(this->get_logger(),"接收到的整形是:%d",serial_pack_.rx.data.int32_buffer[0]);
+          }
 
         }
         // 继续监听新的数据

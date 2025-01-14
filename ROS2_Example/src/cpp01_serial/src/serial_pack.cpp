@@ -132,7 +132,7 @@ bool SERIAL::TX::Data_Pack(uint8_t cmd,
 
 
 
-bool SERIAL::RX::Data_Analysis(uint8_t *msg_data,int16_t bool_num,int16_t int8_num,int16_t int16_num,int16_t int32_num,int16_t fp32_num)
+bool SERIAL::RX::Data_Analysis(uint8_t *msg_data,uint8_t cmd,int16_t bool_num,int16_t int8_num,int16_t int16_num,int16_t int32_num,int16_t fp32_num)
 {
 	static uint16_t CRC16_ = 0;
 	static int16_t rx_cnt = 0;
@@ -163,6 +163,16 @@ bool SERIAL::RX::Data_Analysis(uint8_t *msg_data,int16_t bool_num,int16_t int8_n
         if (rx_cnt == 3)  // 接收到了有效数据长度字节
         {
             valid_data_len = this->data.buffer[2];
+                // 计算有效数据的总长度
+            int16_t data_length = ((bool_num + 7) / 8) +  // bool 数据占用的字节数
+                          (int8_num * 1) +        // int8_t 数据占用的字节数
+                          (int16_num * 2) +       // int16_t 数据占用的字节数
+                          (int32_num * 4) +       // int32_t 数据占用的字节数
+                          (fp32_num * 4);         // fp32 数据占用的字节数
+            if(data_length != valid_data_len)
+            {
+                return false;
+            }
         }
 
 		// 如果数据接收完成（总长度 = 包头 + 数据长度 + CRC16 + 包尾）
@@ -173,6 +183,11 @@ bool SERIAL::RX::Data_Analysis(uint8_t *msg_data,int16_t bool_num,int16_t int8_n
 
             //获取功能码
             this->data.cmd = this->data.buffer[3];
+            if(cmd != this->data.cmd)
+            {
+                return false;
+            }
+
 			// 提取接收到的 CRC16（倒数第三和倒数第二字节）
             //倒数第三个是高8位
             //倒数第二个是低8位
