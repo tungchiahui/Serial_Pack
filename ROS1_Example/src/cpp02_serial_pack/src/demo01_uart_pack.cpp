@@ -141,7 +141,6 @@ private:
                 // 处理接收到的数据
                 if (size > 0)
                 {
-                    ROS_INFO("接收到数据大小: %zu", size);
                     for (std::size_t i = 0; i < size; ++i)
                     {
                         uint8_t rx_data_buffer = (*read_buffer_)[i];
