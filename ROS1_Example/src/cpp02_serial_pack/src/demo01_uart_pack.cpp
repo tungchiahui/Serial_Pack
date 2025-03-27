@@ -237,7 +237,7 @@ private:
         // 加锁保护串口操作
         std::shared_ptr<boost::asio::serial_port> local_serial_port;
         {
-            std::lock_guard<std::mutex> lock(port_mutex_);
+            std::unique_lock<std::mutex> lock(port_mutex_);
             if (!serial_port_ || !serial_port_->is_open()) 
             {
                 ROS_ERROR("串口未打开，无法发送数据");
@@ -275,7 +275,7 @@ private:
         // 1. 加锁检查串口状态并获取对象副本
         std::shared_ptr<boost::asio::serial_port> local_serial_port;
         {
-            std::lock_guard<std::mutex> lock(port_mutex_);
+            std::unique_lock<std::mutex> lock(port_mutex_);
             if (!serial_port_ || !serial_port_->is_open()) 
             {
                 ROS_ERROR("串口未打开，无法发送数据");
