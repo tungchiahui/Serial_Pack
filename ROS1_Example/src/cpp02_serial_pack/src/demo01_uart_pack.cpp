@@ -71,6 +71,9 @@ public:
     {
         transmit_timer_.stop(); // 停止定时器
     
+        // 加锁
+        std::unique_lock<std::mutex> lock(port_mutex_);
+
         // 1. 取消所有异步操作
         if (serial_port_)
         {
@@ -116,9 +119,13 @@ private:
 
     ros::WallTimer transmit_timer_;
 
+    std::mutex port_mutex_;  // 保护串口对象的互斥锁
+
     // 启动异步接收
     void asyncReceive()
     {
+        // 加锁
+        std::unique_lock<std::mutex> lock(port_mutex_);
         if (!serial_port_->is_open())
         {
             ROS_ERROR("串口未打开，无法接收数据");
@@ -187,6 +194,8 @@ private:
         // auto transmit_data_buffer = std::vector<uint8_t>(transmitted_message.begin(), transmitted_message.end());
         // std::vector<uint8_t> hex_data = {0x48, 0x65, 0x6C, 0x6C, 0x6F}; // "Hello" in ASCII
 
+        // 加锁
+        std::unique_lock<std::mutex> lock(port_mutex_);
         if (!serial_port_->is_open())
         {
             ROS_ERROR("串口未打开，无法发送数据");
@@ -235,6 +244,9 @@ private:
     //异步发送
     void asyncSend(const std::vector<uint8_t>& data)
     {
+        // 加锁
+        std::unique_lock<std::mutex> lock(port_mutex_);
+
         auto buf_ptr = std::make_shared<std::vector<uint8_t>>(data);
         boost::asio::async_write(
             *serial_port_,
