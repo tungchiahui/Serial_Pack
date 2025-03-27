@@ -124,18 +124,23 @@ private:
     // 启动异步接收
     void asyncReceive()
     {
-        // 加锁
-        std::unique_lock<std::mutex> lock(port_mutex_);
-        if (!serial_port_->is_open())
+        // 缩小锁的作用域，仅保护状态检查
+        std::shared_ptr<boost::asio::serial_port> local_serial_port;
         {
-            ROS_ERROR("串口未打开，无法接收数据");
-            return;
+            // 加锁
+            std::unique_lock<std::mutex> lock(port_mutex_);
+            if (!serial_port_->is_open())
+            {
+                ROS_ERROR("串口未打开，无法接收数据");
+                return;
+            }
+            local_serial_port = serial_port_; // 通过 shared_ptr 保持对象存活
         }
 
         // 设置异步接收回调函数
-        serial_port_->async_read_some(
+        local_serial_port->async_read_some(
             boost::asio::buffer(*read_buffer_),  // 使用共享缓冲区
-            [this](const boost::system::error_code &ec, std::size_t size)
+            [this,local_serial_port](const boost::system::error_code &ec, std::size_t size)
             {
                 ROS_INFO("进入异步回调，状态码: %d", ec.value());
                 if (ec) // 检查是否有错误
@@ -194,12 +199,17 @@ private:
         // auto transmit_data_buffer = std::vector<uint8_t>(transmitted_message.begin(), transmitted_message.end());
         // std::vector<uint8_t> hex_data = {0x48, 0x65, 0x6C, 0x6C, 0x6F}; // "Hello" in ASCII
 
-        // 加锁
-        std::unique_lock<std::mutex> lock(port_mutex_);
-        if (!serial_port_->is_open())
+        // 仅检查串口状态时加锁
+        bool is_port_open;
+        {
+            std::unique_lock<std::mutex> lock(port_mutex_);
+            is_port_open = (serial_port_ && serial_port_->is_open());
+        }
+
+        if (!is_port_open) 
         {
             ROS_ERROR("串口未打开，无法发送数据");
-            return; // 或处理重连
+            return;
         }
 
             //由于ROS1中node为局部变量，所以只能在node中调用send函数，所以Serial_Transmit只负责处理data_buffer。
@@ -224,11 +234,23 @@ private:
             return 0;
         }
 
+        // 加锁保护串口操作
+        std::shared_ptr<boost::asio::serial_port> local_serial_port;
+        {
+            std::lock_guard<std::mutex> lock(port_mutex_);
+            if (!serial_port_ || !serial_port_->is_open()) 
+            {
+                ROS_ERROR("串口未打开，无法发送数据");
+                return 0;
+            }
+            local_serial_port = serial_port_;
+        }
+
         try
         {
             // 阻塞直到数据发送完成
             size_t bytes_transferred = boost::asio::write(
-                *serial_port_,
+                *local_serial_port,
                 boost::asio::buffer(data)
             );
             return bytes_transferred; // 返回实际发送的字节数
@@ -244,14 +266,32 @@ private:
     //异步发送
     void asyncSend(const std::vector<uint8_t>& data)
     {
-        // 加锁
-        std::unique_lock<std::mutex> lock(port_mutex_);
+        if (data.empty()) 
+        {
+            ROS_WARN("尝试发送空数据");
+            return;
+        }
 
+        // 1. 加锁检查串口状态并获取对象副本
+        std::shared_ptr<boost::asio::serial_port> local_serial_port;
+        {
+            std::lock_guard<std::mutex> lock(port_mutex_);
+            if (!serial_port_ || !serial_port_->is_open()) 
+            {
+                ROS_ERROR("串口未打开，无法发送数据");
+                return;
+            }
+            local_serial_port = serial_port_; // 通过 shared_ptr 保持对象存活
+        }
+
+        // 2. 避免数据拷贝
         auto buf_ptr = std::make_shared<std::vector<uint8_t>>(data);
+
+        // 3. 异步写入（使用 local_serial_port）
         boost::asio::async_write(
-            *serial_port_,
+            *local_serial_port,
             boost::asio::buffer(*buf_ptr),
-            [this, buf_ptr](const boost::system::error_code& ec, size_t bytes)
+            [this, buf_ptr , local_serial_port](const boost::system::error_code& ec, size_t bytes)
             {
                 if(ec)
                 {
