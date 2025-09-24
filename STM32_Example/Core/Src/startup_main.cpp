@@ -5,13 +5,13 @@ extern uint8_t rx_buffer[1];
 
 void startup_main(void)
 {
-	//¿ªÆô´®¿Ú½ÓÊÕÖÐ¶Ï
-	HAL_UART_Receive_IT(&huart2,rx_buffer,1);
-	
-#if isRTOS==0    	//Èç¹ûÊÇÂã»ú¿ª·¢
-	for(;;)  //µÈÍ¬ÓÚwhile(true)
-	{
+    //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú½ï¿½ï¿½ï¿½ï¿½Ð¶ï¿½
+    HAL_UART_Receive_IT(&huart2,rx_buffer,1);
 
-	}
-#endif
+    #if isRTOS==0    	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    for(;;)  //ï¿½ï¿½Í¬ï¿½ï¿½while(true)
+    {
+
+    }
+    #endif
 }
