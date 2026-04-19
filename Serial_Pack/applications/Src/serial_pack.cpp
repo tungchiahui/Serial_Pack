@@ -1,8 +1,7 @@
-#include "cpp01_serial/serial_pack.h"
-#include <cstdint>
-#include <string.h> // For memcpy
-#include <vector>
-
+#include "serial_pack.h"
+#include "usart.h"
+#include "cmsis_os.h"
+#include <cstring>
 
 //包类对象
 SERIAL serial_pack_;
@@ -10,6 +9,48 @@ SERIAL serial_pack_;
 //接收到的数据
 uint8_t rx_buffer[1];
 
+
+extern "C" void transmit_task(void *argument)
+{
+    bool bool_buffer[] = {1, 0, 1, 0};
+    int8_t int8_buffer[] = {0x11,0x22};
+    int16_t int16_buffer[] = {2000,6666};
+    //  int32_t int32_buffer[] = {305419896};
+    fp32 fp32_buffer[] = {3.5f};
+
+    //绝对延时
+    const uint32_t period = (500U * osKernelGetTickFreq()) / 1000U;
+    uint32_t PreviousWakeTime = osKernelGetTickCount();
+
+    for(;;)
+    {
+        // 发送数据（不发送 int32_buffer）
+        serial_pack_.tx.Data_Pack(0x01, 
+                                 bool_buffer, sizeof(bool_buffer) / sizeof(bool),
+                                 int8_buffer, sizeof(int8_buffer) / sizeof(int8_t),
+                                 int16_buffer, sizeof(int16_buffer) / sizeof(int16_t),
+                                 nullptr, 0,
+                                 fp32_buffer, sizeof(fp32_buffer) / sizeof(fp32));
+                                 
+        //绝对延时                           
+		PreviousWakeTime += period;
+        osDelayUntil(PreviousWakeTime);
+    }
+}
+
+
+//单片机串口接收中断回调函数	
+extern "C" void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if(huart->Instance == USART1)
+	{
+		serial_pack_.rx.Data_Analysis(rx_buffer,0x01,16,2,2,1,1);
+
+        // 重新开启接收中断
+        HAL_UART_Receive_IT(&huart1,rx_buffer,1);
+	}
+
+}
 
 bool SERIAL::RX::Data_Apply(void)
 {
@@ -21,27 +62,18 @@ bool SERIAL::RX::Data_Apply(void)
 	this->data.int32_buffer[i];
 	this->data.fp32_buffer[i];
 */
-    //由于在ROS2中，node是局部变量，所以发布方只能在node类里，故这里不写任何东西，直接在接收回调函数里实现功能。
 	
 	return true;
 }
 
-std::vector<uint8_t> data_buffer;
 bool SERIAL::TX::Serial_Transmit(uint8_t *pData, uint16_t Size)
 {
-    if (Size == 0)
-    {
-        data_buffer.clear();
-        return true;
-    }
-
-    if (pData == nullptr)
+    //发送函数（在不同的机器上要用不同的函数替换）
+    HAL_StatusTypeDef flags =  HAL_UART_Transmit(&huart1,pData,Size,HAL_MAX_DELAY);
+    if(flags != HAL_OK)
     {
         return false;
     }
-
-    // 每次发送都覆盖缓冲，避免历史帧不断累积。
-    data_buffer.assign(pData, pData + Size);
     return true;
 }
 

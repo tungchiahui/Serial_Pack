@@ -1,0 +1,2 @@
+# Add USER generated sources
+add_subdirectory(cmake/user)
