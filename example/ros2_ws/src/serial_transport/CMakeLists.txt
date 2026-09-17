@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(cpp01_serial)
+project(serial_transport)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -8,25 +8,21 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(serial_driver REQUIRED)
 
-add_executable(demo01_uart src/demo01_uart.cpp src/serial_pack.cpp)  #需要修改这里
 
-target_include_directories(demo01_uart PUBLIC
+add_executable(serial_driver src/serial_driver.cpp)
+target_include_directories(serial_driver PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>)
-
-target_compile_features(demo01_uart PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(serial_driver PUBLIC c_std_17 cxx_std_23)  # Require C17 and C++23
 ament_target_dependencies(
-  demo01_uart
+  serial_driver
   "rclcpp"
-  "serial_driver"
+
 )
 
-
-install(TARGETS demo01_uart
+install(TARGETS serial_driver
   DESTINATION lib/${PROJECT_NAME})
-
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
