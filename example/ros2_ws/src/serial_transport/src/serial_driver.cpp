@@ -119,11 +119,11 @@ class Serial_Node: public rclcpp::Node
       // 模拟不断变化的速度命令
       ++cmd_count_;
 
-      double t = cmd_count_ * 0.01;
+      fp64 t = cmd_count_ * 0.01;
 
-      float vx = static_cast<float>(std::sin(t));
-      float vy = static_cast<float>(std::cos(t));
-      float wz = static_cast<float>(0.5 * std::sin(t));
+      fp32 vx = static_cast<fp32>(std::sin(t));
+      fp32 vy = static_cast<fp32>(std::cos(t));
+      fp32 wz = static_cast<fp32>(0.5 * std::sin(t));
 
       uint32_t seq = static_cast<uint32_t>(cmd_count_);
 
