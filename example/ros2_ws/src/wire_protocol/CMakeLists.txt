@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(serial_transport)
+project(wire_protocol)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -7,26 +7,20 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(Boost REQUIRED COMPONENTS system)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
 add_library(${PROJECT_NAME}
-  src/serial_transport.cpp
+  src/protocol.cpp
 )
 
-target_compile_features(serial_driver PUBLIC c_std_17 cxx_std_23)  # Require C17 and C++23
+target_compile_features(${PROJECT_NAME} PUBLIC c_std_17 cxx_std_23)  # Require C17 and C++23
 
 target_include_directories(${PROJECT_NAME}
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
-)
-
-target_link_libraries(${PROJECT_NAME}
-  PUBLIC
-    Boost::system
 )
 
 install(
@@ -47,9 +41,8 @@ ament_export_targets(
   HAS_LIBRARY_TARGET
 )
 
-ament_export_dependencies(Boost)
-
 ament_export_include_directories(include)
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
