@@ -8,6 +8,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(wire_protocol REQUIRED)
 find_path(ASIO_INCLUDE_DIR NAMES asio.hpp REQUIRED)
 
 
@@ -21,6 +22,7 @@ target_compile_definitions(serial_driver PRIVATE ASIO_STANDALONE)
 ament_target_dependencies(
   serial_driver
   "rclcpp"
+  "wire_protocol"
 
 )
 
