@@ -1,11 +1,15 @@
 #include "serial_transport/serial_driver.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include <asio.hpp>
+#include <bit>
+#include <cstdint>
+#include <span>
 #include <system_error>
 #include <cstddef>
 #include <functional>
 #include <deque>
 #include <vector>
+#include "wire_protocol/protocol.hpp"
 
 using namespace std::chrono_literals;
 
@@ -25,7 +29,7 @@ class Serial_Node: public rclcpp::Node
       //==================================================
 
       //声明并设置默认参数
-      this->declare_parameter<std::string>("port", "/dev/pts/6");
+      this->declare_parameter<std::string>("port", "/dev/pts/2");
       this->declare_parameter<int>("baud_rate", 115200);
 
       //参数读取
@@ -116,11 +120,12 @@ class Serial_Node: public rclcpp::Node
 
       fp64 t = cmd_count_ * 0.01;
 
+      uint32_t seq = static_cast<uint32_t>(cmd_count_);
+
       fp32 vx = static_cast<fp32>(std::sin(t));
       fp32 vy = static_cast<fp32>(std::cos(t));
       fp32 wz = static_cast<fp32>(0.5 * std::sin(t));
 
-      uint32_t seq = static_cast<uint32_t>(cmd_count_);
 
 
       RCLCPP_DEBUG(this->get_logger(),"[ROS] cmd_vel: seq=%u, vx=%.2f, vy=%.2f, wz=%.2f",seq,vx,vy,wz);
@@ -136,25 +141,23 @@ class Serial_Node: public rclcpp::Node
               {
                 //这里是asio的线程
 
-                //模拟一下打包的场景
                 std::vector<uint8_t> frame;
 
-                frame.push_back(0xA1);  // timer1标识
+                std::vector<std::int32_t> int32_vec;
+                int32_vec.push_back(std::bit_cast<std::int32_t>(seq));
 
-                auto append = [&frame](const auto & value)
-                {
-                  const auto * p = reinterpret_cast<const uint8_t *>(&value);
+                std::vector<fp32> fp32_vec;
+                fp32_vec.push_back(vx);
+                fp32_vec.push_back(vy);
+                fp32_vec.push_back(wz);
 
-                  frame.insert(frame.end(),p,p + sizeof(value));
-                };
+                wire_protocol::FieldSpans fields;
 
-                append(seq);
-                append(vx);
-                append(vy);
-                append(wz);
+                fields.int32s = int32_vec;
+                fields.float32s = fp32_vec;
 
-                frame.push_back(0x1A);  // 尾标识
-
+                wire_protocol::encode(0x01,fields, frame);
+                
                 //加入发送队列
                 enqueue_write(std::move(frame));
               });
@@ -188,20 +191,14 @@ class Serial_Node: public rclcpp::Node
         {
             std::vector<uint8_t> frame;
 
-            frame.push_back(0xB2);  // timer2标识
+            std::vector<int32_t> int32_vec;
+            int32_vec.push_back(std::bit_cast<std::int32_t>(seq));
+            int32_vec.push_back(mode);
 
-            auto append = [&frame](const auto & value)
-            {
-              const auto * p = reinterpret_cast<const uint8_t *>(&value);
+            wire_protocol::FieldSpans fileds;
+            fileds.int32s = int32_vec;
 
-              frame.insert(frame.end(),p,p + sizeof(value));
-            };
-
-            append(seq);
-            append(mode);
-
-            frame.push_back(0x2B);
-
+            wire_protocol::encode(0x02, fileds, frame);
             enqueue_write(std::move(frame));
         });
       }
@@ -302,7 +299,7 @@ class Serial_Node: public rclcpp::Node
         handle_serial_error(ec);
         return;
       }
-      RCLCPP_INFO(this->get_logger(),"[Asio] 收到 %zu bytes",bytes_transferred);
+      RCLCPP_DEBUG(this->get_logger(),"[Asio] 收到 %zu bytes",bytes_transferred);
 
       // 重新注册下一次异步接收
       start_async_read();
