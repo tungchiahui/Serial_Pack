@@ -1,0 +1,7 @@
+# ROS 2 / colcon
+/build/
+/install/
+/log/
+
+# IDE
+.vscode/

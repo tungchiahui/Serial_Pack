@@ -1,15 +1,10 @@
 #include "serial_transport/serial_driver.hpp"
 #include "rclcpp/rclcpp.hpp"
-#include "boost/asio.hpp"
-#include <boost/asio/buffer.hpp>
-#include <boost/asio/io_context.hpp>
-#include <boost/system/error_code.hpp>
-#include <boost/asio/executor_work_guard.hpp>
+#include <asio.hpp>
+#include <system_error>
 #include <cstddef>
-#include <cstdint>
 #include <functional>
 #include <deque>
-#include <rclcpp/logging.hpp>
 #include <vector>
 
 using namespace std::chrono_literals;
@@ -20,7 +15,7 @@ class Serial_Node: public rclcpp::Node
     Serial_Node()
       : Node("serial_node_cpp"),
         io_context_(),
-        work_guard_(boost::asio::make_work_guard(io_context_)),
+        work_guard_(asio::make_work_guard(io_context_)),
         serial_port_(io_context_)
     {
       RCLCPP_INFO(this->get_logger(),"serial_node启动!");
@@ -30,7 +25,7 @@ class Serial_Node: public rclcpp::Node
       //==================================================
 
       //声明并设置默认参数
-      this->declare_parameter<std::string>("port", "/dev/pts/3");
+      this->declare_parameter<std::string>("port", "/dev/pts/6");
       this->declare_parameter<int>("baud_rate", 115200);
 
       //参数读取
@@ -39,11 +34,11 @@ class Serial_Node: public rclcpp::Node
 
       //硬参数
       character_size_ = 8;
-      parity_ = boost::asio::serial_port_base::parity::none;
-      stop_bits_ = boost::asio::serial_port_base::stop_bits::one;
-      flow_control_ = boost::asio::serial_port_base::flow_control::none;
+      parity_ = asio::serial_port_base::parity::none;
+      stop_bits_ = asio::serial_port_base::stop_bits::one;
+      flow_control_ = asio::serial_port_base::flow_control::none;
 
-      boost::asio::post(io_context_,
+      asio::post(io_context_,
           [this]()
           {
               open_serial();
@@ -75,12 +70,12 @@ class Serial_Node: public rclcpp::Node
 
       // 不直接在ROS主线程操作serial_port_，防止跨线程操作serial_port_
       // 而是把关闭任务交给Asio线程
-      boost::asio::post(io_context_,
+      asio::post(io_context_,
         [this]()->void
               {
                 stopping_ = true;
 
-                boost::system::error_code ec;
+                std::error_code ec;
 
                 // 取消重连
                 reconnect_timer_.cancel(ec);
@@ -136,7 +131,7 @@ class Serial_Node: public rclcpp::Node
       // 只把“我要发送什么”
       // post给io_context。
       //--------------------------------------------------
-      boost::asio::post(io_context_,
+      asio::post(io_context_,
         [this,seq,vx,vy,wz]()->void
               {
                 //这里是asio的线程
@@ -187,7 +182,7 @@ class Serial_Node: public rclcpp::Node
       // 只把“我要发送什么”
       // post给io_context。
       //--------------------------------------------------
-      boost::asio::post(
+      asio::post(
         io_context_,
         [this, seq, mode]()
         {
@@ -260,8 +255,8 @@ class Serial_Node: public rclcpp::Node
       // 再复制一份 shared_ptr 给 handler
       auto frame = active_write_;
 
-      boost::asio::async_write(serial_port_,boost::asio::buffer(*frame),
-      [this,frame](const boost::system::error_code & ec,std::size_t bytes_transferred)->void
+      asio::async_write(serial_port_,asio::buffer(*frame),
+      [this,frame](const std::error_code & ec,std::size_t bytes_transferred)->void
       {
         // 当前 write 已经结束
         active_write_.reset();
@@ -296,11 +291,11 @@ class Serial_Node: public rclcpp::Node
         return;
       }
 
-      serial_port_.async_read_some(boost::asio::buffer(rx_buffer_),
+      serial_port_.async_read_some(asio::buffer(rx_buffer_),
       std::bind(&Serial_Node::async_read_callback,this,std::placeholders::_1,std::placeholders::_2));
     }
 
-    void async_read_callback(const boost::system::error_code & ec,std::size_t bytes_transferred)
+    void async_read_callback(const std::error_code & ec,std::size_t bytes_transferred)
     {
       if(ec)
       {
@@ -315,14 +310,14 @@ class Serial_Node: public rclcpp::Node
     //======================================================
     // 读写失败处理函数
     //======================================================
-    void handle_serial_error(const boost::system::error_code & ec)
+    void handle_serial_error(const std::error_code & ec)
     {
-      if (stopping_ || ec == boost::asio::error::operation_aborted)
+      if (stopping_ || ec == asio::error::operation_aborted)
       {
           return;
       }
       RCLCPP_ERROR(this->get_logger(),"串口通信异常: %s",ec.message().c_str());
-      boost::system::error_code ignore_ec;
+      std::error_code ignore_ec;
 
       if (serial_port_.is_open())
       {
@@ -346,7 +341,7 @@ class Serial_Node: public rclcpp::Node
           return;
       }
 
-      boost::system::error_code ec;
+      std::error_code ec;
 
       //如果现在是开着的，说明是重连，所以先关闭串口
       if (serial_port_.is_open())
@@ -369,23 +364,23 @@ class Serial_Node: public rclcpp::Node
 
       try
       {
-        serial_port_.set_option(boost::asio::serial_port_base::baud_rate(baud_rate_));
+        serial_port_.set_option(asio::serial_port_base::baud_rate(baud_rate_));
 
-        serial_port_.set_option(boost::asio::serial_port_base::character_size(character_size_));
+        serial_port_.set_option(asio::serial_port_base::character_size(character_size_));
 
-        serial_port_.set_option(boost::asio::serial_port_base::parity(parity_));
+        serial_port_.set_option(asio::serial_port_base::parity(parity_));
 
-        serial_port_.set_option(boost::asio::serial_port_base::stop_bits(stop_bits_));
+        serial_port_.set_option(asio::serial_port_base::stop_bits(stop_bits_));
 
-        serial_port_.set_option(boost::asio::serial_port_base::flow_control(flow_control_));
+        serial_port_.set_option(asio::serial_port_base::flow_control(flow_control_));
 
         RCLCPP_INFO(this->get_logger(),"串口打开成功: %s, baud=%d",port_name_.c_str(),baud_rate_);
       }
-      catch (const boost::system::system_error & e)
+      catch (const std::system_error & e)
       {
         RCLCPP_ERROR(this->get_logger(),"串口配置失败: %s",e.what());
 
-        boost::system::error_code ignore_ec;
+        std::error_code ignore_ec;
         serial_port_.close(ignore_ec);
 
         schedule_reconnect();
@@ -405,12 +400,12 @@ class Serial_Node: public rclcpp::Node
       reconnect_pending_ = true;
 
       reconnect_timer_.expires_after(1s);
-      reconnect_timer_.async_wait([this](const boost::system::error_code & ec)->void
+      reconnect_timer_.async_wait([this](const std::error_code & ec)->void
       {
 
         reconnect_pending_ = false;
 
-        if (ec == boost::asio::error::operation_aborted)
+        if (ec == asio::error::operation_aborted)
         {
           return;
         }
@@ -438,13 +433,13 @@ class Serial_Node: public rclcpp::Node
     //======================================================
     // Asio
     //======================================================
-    boost::asio::io_context io_context_;
-    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_guard_;
-    boost::asio::serial_port serial_port_;
+    asio::io_context io_context_;
+    asio::executor_work_guard<asio::io_context::executor_type> work_guard_;
+    asio::serial_port serial_port_;
     std::jthread asio_thread_;
 
     //重连机制
-    boost::asio::steady_timer reconnect_timer_{io_context_};
+    asio::steady_timer reconnect_timer_{io_context_};
     bool stopping_{false};
     bool reconnect_pending_{false};
 
@@ -454,9 +449,9 @@ class Serial_Node: public rclcpp::Node
     std::string port_name_;
     uint32_t baud_rate_;
     uint32_t character_size_;
-    boost::asio::serial_port_base::parity::type parity_;
-    boost::asio::serial_port_base::stop_bits::type stop_bits_;
-    boost::asio::serial_port_base::flow_control::type flow_control_;
+    asio::serial_port_base::parity::type parity_;
+    asio::serial_port_base::stop_bits::type stop_bits_;
+    asio::serial_port_base::flow_control::type flow_control_;
 
     //RX
     std::array<uint8_t, 1024> rx_buffer_{};
