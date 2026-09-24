@@ -7,7 +7,11 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(Boost REQUIRED COMPONENTS system)
+# Standalone Asio (libasio-dev)
+find_path(ASIO_INCLUDE_DIR
+  NAMES asio.hpp
+  REQUIRED
+)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -18,16 +22,17 @@ add_library(${PROJECT_NAME}
 
 target_compile_features(serial_driver PUBLIC c_std_17 cxx_std_23)  # Require C17 and C++23
 
+target_compile_definitions(${PROJECT_NAME}
+  PUBLIC ASIO_STANDALONE
+)
+
 target_include_directories(${PROJECT_NAME}
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
+    ${ASIO_INCLUDE_DIR}
 )
 
-target_link_libraries(${PROJECT_NAME}
-  PUBLIC
-    Boost::system
-)
 
 install(
   DIRECTORY include/
@@ -46,8 +51,6 @@ ament_export_targets(
   export_${PROJECT_NAME}
   HAS_LIBRARY_TARGET
 )
-
-ament_export_dependencies(Boost)
 
 ament_export_include_directories(include)
 
