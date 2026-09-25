@@ -29,7 +29,7 @@ class Serial_Node: public rclcpp::Node
       //==================================================
 
       //声明并设置默认参数
-      this->declare_parameter<std::string>("port", "/dev/pts/2");
+      this->declare_parameter<std::string>("port", "/dev/pts/7");
       this->declare_parameter<int>("baud_rate", 115200);
 
       //参数读取
@@ -127,7 +127,6 @@ class Serial_Node: public rclcpp::Node
       fp32 wz = static_cast<fp32>(0.5 * std::sin(t));
 
 
-
       RCLCPP_DEBUG(this->get_logger(),"[ROS] cmd_vel: seq=%u, vx=%.2f, vy=%.2f, wz=%.2f",seq,vx,vy,wz);
       
       //--------------------------------------------------
@@ -141,8 +140,6 @@ class Serial_Node: public rclcpp::Node
               {
                 //这里是asio的线程
 
-                std::vector<uint8_t> frame;
-
                 std::vector<std::int32_t> int32_vec;
                 int32_vec.push_back(std::bit_cast<std::int32_t>(seq));
 
@@ -155,6 +152,19 @@ class Serial_Node: public rclcpp::Node
 
                 fields.int32s = int32_vec;
                 fields.float32s = fp32_vec;
+
+                const auto frame_size = wire_protocol::encoded_frame_size(fields);
+
+                if (!frame_size)
+                {
+                    RCLCPP_ERROR(
+                        this->get_logger(),
+                        "协议帧过大"
+                    );
+                    return;
+                }
+
+                std::vector<uint8_t> frame(frame_size.value());
 
                 wire_protocol::encode(0x01,fields, frame);
                 
@@ -189,16 +199,24 @@ class Serial_Node: public rclcpp::Node
         io_context_,
         [this, seq, mode]()
         {
-            std::vector<uint8_t> frame;
-
             std::vector<int32_t> int32_vec;
             int32_vec.push_back(std::bit_cast<std::int32_t>(seq));
             int32_vec.push_back(mode);
 
-            wire_protocol::FieldSpans fileds;
-            fileds.int32s = int32_vec;
+            wire_protocol::FieldSpans fields;
+            fields.int32s = int32_vec;
 
-            wire_protocol::encode(0x02, fileds, frame);
+            const auto frame_size = wire_protocol::encoded_frame_size(fields);
+
+            if (!frame_size)
+            {
+              RCLCPP_ERROR(this->get_logger(),"协议帧过大");
+              return;
+            }
+
+            std::vector<uint8_t> frame(frame_size.value());
+            
+            wire_protocol::encode(0x02, fields, frame);
             enqueue_write(std::move(frame));
         });
       }
@@ -301,9 +319,104 @@ class Serial_Node: public rclcpp::Node
       }
       RCLCPP_DEBUG(this->get_logger(),"[Asio] 收到 %zu bytes",bytes_transferred);
 
+      // protocol协议：
+
+      std::span<const uint8_t> data_buffer = {rx_buffer_.data(),bytes_transferred};
+
+      parser_.feed(data_buffer,
+        [this](const wire_protocol::Frame & frame)
+                  {
+                    frame_analysis(frame);
+                  });
+
       // 重新注册下一次异步接收
       start_async_read();
     }
+
+    //处理函数，自己写
+    void frame_analysis(const wire_protocol::Frame & frame)
+    {
+        switch (frame.command)
+        {
+            case 0x01:
+                cmd_vel_analysis(frame);
+                break;
+
+            case 0x02:
+                set_mode_analysis(frame);
+                break;
+
+            default:
+                RCLCPP_WARN(
+                    this->get_logger(),
+                    "未知 command: 0x%02X",
+                    static_cast<unsigned int>(frame.command)
+                );
+                break;
+        }
+    }
+
+    //0x01
+    void cmd_vel_analysis(const wire_protocol::Frame & frame)
+    {
+      wire_protocol::FieldCounts counts{};
+
+      counts.bools = 0;
+      counts.int8s = 0;
+      counts.int16s = 0;
+      counts.int32s = 1;
+      counts.float32s = 3;
+
+      wire_protocol::DecodedFields decoded_fields{};
+
+      const auto status = wire_protocol::decode(frame.payload_bytes(),counts,decoded_fields);
+
+      if (status != wire_protocol::Status::ok)
+      {
+          RCLCPP_WARN(this->get_logger(),"cmd_vel 解码失败");
+          return;
+      }
+
+      uint32_t seq = std::bit_cast<uint32_t>(decoded_fields.int32s[0]);
+
+      fp32 vx = decoded_fields.float32s[0];
+      fp32 vy = decoded_fields.float32s[1];
+      fp32 wz = decoded_fields.float32s[2];
+
+      RCLCPP_INFO(this->get_logger(),"[RX cmd_vel] seq=%u vx=%.3f vy=%.3f wz=%.3f",seq,vx,vy,wz);
+    }
+
+  
+    //0x02
+    void set_mode_analysis(const wire_protocol::Frame & frame)
+    {
+      wire_protocol::FieldCounts counts{};
+
+      counts.bools = 0;
+      counts.int8s = 0;
+      counts.int16s = 0;
+      counts.int32s = 2;
+      counts.float32s = 0;
+
+      wire_protocol::DecodedFields decoded_fields{};
+
+      const auto status = wire_protocol::decode(frame.payload_bytes(),counts,decoded_fields);
+
+      if (status != wire_protocol::Status::ok)
+      {
+          RCLCPP_WARN(this->get_logger(),"set_mode 解码失败");
+          return;
+      }
+
+      uint32_t seq = std::bit_cast<uint32_t>(decoded_fields.int32s[0]);
+
+      int32_t mode = decoded_fields.int32s[1];
+
+      RCLCPP_INFO(this->get_logger(),"[RX mode] seq=%u mode=%u",seq,mode);
+
+    }
+
+
     //======================================================
     // 读写失败处理函数
     //======================================================
@@ -452,6 +565,7 @@ class Serial_Node: public rclcpp::Node
 
     //RX
     std::array<uint8_t, 1024> rx_buffer_{};
+    wire_protocol::FrameParser parser_; //protocol解析器
 
     //TX
     std::deque<std::vector<uint8_t>> send_queue_;

@@ -137,3 +137,16 @@ start_async_read();
 | `payload_size_mismatch` | 解码数据区长度与 `FieldCounts` 不匹配 |
 
 `decode()` 成功后才会把结果写入 `output`。解析器负责完整帧校验，`decode()` 本身不检查帧头、CRC16 或帧尾。
+
+
+[RX cmd_vel] seq=1 vx=1.000 vy=0.500 wz=-0.500
+
+```text
+printf '\xA5\x5A\x10\x01\x00\x00\x00\x01\x3F\x80\x00\x00\x3F\x00\x00\x00\xBF\x00\x00\x00\x67\x27\xFF' > /dev/pts/9
+```
+
+[RX mode] seq=1 mode=2
+
+```text
+printf '\xA5\x5A\x08\x02\x00\x00\x00\x01\x00\x00\x00\x02\x0A\xFC\xFF' > /dev/pts/9
+```
