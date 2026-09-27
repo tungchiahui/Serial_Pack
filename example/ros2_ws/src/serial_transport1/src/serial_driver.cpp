@@ -570,8 +570,6 @@ class Serial_Node: public rclcpp::Node
     //TX
     std::deque<std::vector<uint8_t>> send_queue_;
     std::shared_ptr<std::vector<uint8_t>> active_write_; //防止send_queue_.clear()造成的buffer 悬空风险
-
-
 };
 
 int main(int argc, char ** argv)

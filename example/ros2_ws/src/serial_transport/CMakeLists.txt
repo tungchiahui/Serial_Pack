@@ -7,28 +7,58 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
-find_package(wire_protocol REQUIRED)
-find_path(ASIO_INCLUDE_DIR NAMES asio.hpp REQUIRED)
+# uncomment the following section in order to fill in
+# further dependencies manually.
+# find_package(<dependency> REQUIRED)
 
-
-add_executable(serial_driver src/serial_driver.cpp)
-target_include_directories(serial_driver PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>
-  ${ASIO_INCLUDE_DIR})
-target_compile_features(serial_driver PUBLIC c_std_17 cxx_std_23)  # Require C17 and C++23
-target_compile_definitions(serial_driver PRIVATE ASIO_STANDALONE)
-ament_target_dependencies(
-  serial_driver
-  "rclcpp"
-  "wire_protocol"
-
+# Library
+add_library(${PROJECT_NAME}
+  src/serial_transport.cpp
 )
 
-install(TARGETS serial_driver
-  DESTINATION lib/${PROJECT_NAME})
+# Require C++23
+target_compile_features(${PROJECT_NAME} PUBLIC c_std_17 cxx_std_20)  # Require C17 and C++20
 
+
+# Header path
+target_include_directories(${PROJECT_NAME}
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+# standalone Asio
+target_compile_definitions(${PROJECT_NAME}
+  PUBLIC
+    ASIO_STANDALONE
+)
+
+# Install
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
+
+install(
+  TARGETS ${PROJECT_NAME}
+  EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+
+# Export
+
+ament_export_targets(
+  export_${PROJECT_NAME}
+  HAS_LIBRARY_TARGET
+)
+
+ament_export_include_directories(include)
+
+
+
+# Testing
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
