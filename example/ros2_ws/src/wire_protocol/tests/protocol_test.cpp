@@ -18,6 +18,13 @@ void operator delete[](void* p, std::size_t) noexcept { std::free(p); }
 int main()
 {
     using namespace wire_protocol;
+    using detail::Parser;
+    using Frame = detail::FrameView;
+    Protocol<> protocol;
+    const auto pack = [&](std::uint8_t command, const auto&... fields)
+    {
+        return protocol.pack(command, fields...);
+    };
     constexpr std::array<std::uint8_t, 9> crc_input{'1','2','3','4','5','6','7','8','9'};
     CHECK(detail::crc16(crc_input) == 0x4B37);
     const std::uint32_t seq = 0xFEDCBA98;
@@ -25,6 +32,24 @@ int main()
     static_assert(tx.size() == 23);
     CHECK(tx[4] == 0xFE && tx[5] == 0xDC && tx[6] == 0xBA && tx[7] == 0x98);
     CHECK(tx[8] == 0x3F && tx[9] == 0x80 && tx[12] == 0xC0);
+    const auto crc = detail::crc16(std::span{tx}.subspan(2, tx[2] + 2));
+    CHECK(tx[tx.size() - 3] == static_cast<std::uint8_t>(crc >> 8));
+    CHECK(tx[tx.size() - 2] == static_cast<std::uint8_t>(crc));
+    CHECK(crc != detail::crc16(std::span{tx}.subspan(4, tx[2])));
+    // 旧版 README 的实际发送帧：字段及帧结构保持，CRC 改为覆盖 LEN+CMD+DATA。
+    const auto upgraded = pack(0x01, std::uint32_t{1}, 1.0f, 0.5f, -0.5f);
+    constexpr std::array<std::uint8_t, 23> expected{
+        0xA5, 0x5A, 0x10, 0x01, 0x00, 0x00, 0x00, 0x01,
+        0x3F, 0x80, 0x00, 0x00, 0x3F, 0x00, 0x00, 0x00,
+        0xBF, 0x00, 0x00, 0x00, 0x26, 0xBD, 0xFF};
+    CHECK(upgraded == expected);
+    auto old_frame = expected;
+    old_frame[20] = 0x67;
+    old_frame[21] = 0x27;
+    int old_frame_received = 0;
+    Parser<> compatibility_parser;
+    compatibility_parser.feed(old_frame, [&](const Frame&) { ++old_frame_received; });
+    CHECK(old_frame_received == 0);
     Parser<> parser;
     int received = 0;
     const auto receive = [&](const Frame& frame) {
@@ -65,6 +90,10 @@ int main()
     parser.feed(std::span{tx}.first(5), receive);
     parser.reset();
     parser.feed(tx, receive);
+    CHECK(received == before + 4);
+    auto wrong_command = tx;
+    wrong_command[3] = 0x02;
+    parser.feed(wrong_command, receive);
     CHECK(received == before + 4);
 
     const std::array<bool, 9> flags{true, false, true, true, false, false, false, true, true};
