@@ -1,5 +1,6 @@
 #include "rclcpp/rclcpp.hpp"
 #include "serial_transport/serial_transport.hpp"
+#include <cstdint>
 #include <wire_protocol/protocol.hpp>
 #include <functional>
 #include <rclcpp/logging.hpp>
@@ -32,18 +33,20 @@ class Serial_Node: public rclcpp::Node
       serial_config_.stop_bits_ = asio::serial_port_base::stop_bits::one;
       serial_config_.flow_control_ = asio::serial_port_base::flow_control::none;
 
-      //开启串口与串口异步接收
-      serial_driver_.start(serial_config_, std::bind(&Serial_Node::serial_receive_callback,this,std::placeholders::_1));
-
       //串口包协议回调函数设置
       if(!protocol_.set_unpack_callback(0x01, &Serial_Node::handle_cmd_vel, this))
       {
+        RCLCPP_ERROR(this->get_logger(), "cmd_vel 协议回调注册失败");
         return;
       }
       if(!protocol_.set_unpack_callback(0x02, &Serial_Node::handle_set_mode, this))
       {
+        RCLCPP_ERROR(this->get_logger(), "set_mode 协议回调注册失败");
         return;
       }
+
+      //回调注册完毕后，再开启串口与异步接收
+      serial_driver_.start(serial_config_, std::bind(&Serial_Node::serial_receive_callback,this,std::placeholders::_1));
 
       // 创建两个定时器模拟两个 topic
       //模拟/cmd_vel这种高频消息
@@ -53,25 +56,25 @@ class Serial_Node: public rclcpp::Node
 
     }
 
-    ~Serial_Node()
-    {
-      
-    }
-
   private:
     void handle_cmd_vel(std::uint32_t seq, float vx, float vy, float wz)
     {
-      
+      RCLCPP_INFO_THROTTLE(
+          this->get_logger(), *this->get_clock(), 1000,
+          "[RX cmd_vel] seq=%u vx=%.3f vy=%.3f wz=%.3f",
+          static_cast<uint32_t>(seq), vx, vy, wz);
     }
 
     void handle_set_mode(std::uint32_t seq, std::int32_t mode)
     {
-
+      RCLCPP_INFO(this->get_logger(), "[RX set_mode] seq=%u mode=%d",
+                  static_cast<uint32_t>(seq), static_cast<int32_t>(mode));
     }
 
 
     void serial_receive_callback(std::span<const uint8_t> msg)
     {
+      //解包
       protocol_.feed(msg);
     }
 
@@ -121,12 +124,13 @@ class Serial_Node: public rclcpp::Node
     rclcpp::TimerBase::SharedPtr timer1_;
     rclcpp::TimerBase::SharedPtr timer2_;
 
+    //注意，protocol_一定要比serial_driver_早。
+    // protocol_ 先构造、后析构；串口析构时先 stop() 并等待接收线程退出。
+    wire_protocol::CallbackProtocol protocol_;
+
     //Serial
     serial_transport::Serial_Config serial_config_;
     serial_transport::SerialTransport serial_driver_;
-    
-    //Protocol
-    wire_protocol::CallbackProtocol protocol_;
 
     //模拟数据
     uint64_t cmd_count_{0};
