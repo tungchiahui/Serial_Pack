@@ -140,6 +140,8 @@ DATA 配置。线上不携带字段类型信息：长度相同但 schema 不同�
 
 协议由 `include/wire_protocol/protocol.hpp` 和 `src/protocol.cpp` 组成，
 不使用 `new`、`std::function`、`std::vector`、异常、RTTI 或虚函数。
+CRC、帧解析、字节读写和 bool 位打包实现在 cpp；字段长度与类型推导、
+handler 签名推导和静态 dispatch 是模板，保留在 hpp 中供调用方实例化。
 `std::array` 和 `std::tuple` 均为对象内固定存储；`std::span` 只借用接收数据。
 STM32 工具链需提供 C++20 的 `std::span`、`std::bit_cast`、concepts 和 `std::invoke`。
 通常在主循环／任务中喂入 DMA 接收片段；如直接把 `pack()` 返回数组交给 UART DMA，

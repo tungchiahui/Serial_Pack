@@ -10,17 +10,19 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(serial_transport REQUIRED)
+find_package(wire_protocol REQUIRED)
 
 add_executable(serial_comm src/serial_comm.cpp)
 target_include_directories(serial_comm PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(serial_comm PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(serial_comm PUBLIC c_std_17 cxx_std_20)  # Require C17 and C++20
 ament_target_dependencies(
   serial_comm
   "rclcpp"
   "geometry_msgs"
   "serial_transport"
+  "wire_protocol"
 )
 
 install(TARGETS serial_comm

@@ -5,7 +5,7 @@ add_library(${PROJECT_NAME}
   src/protocol.cpp
 )
 add_library(wire_protocol::wire_protocol ALIAS ${PROJECT_NAME})
-target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_20)
+target_compile_features(serial_comm PUBLIC c_std_17 cxx_std_20)  # Require C17 and C++20
 target_include_directories(${PROJECT_NAME}
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

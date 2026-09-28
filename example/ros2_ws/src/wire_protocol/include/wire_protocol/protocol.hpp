@@ -6,7 +6,6 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <functional>
 #include <limits>
 #include <span>
@@ -114,30 +113,42 @@ void visit(T& field, Function&& function) noexcept
 
 std::uint16_t crc16(std::span<const std::uint8_t> bytes) noexcept;
 
-template <typename T>
-void write(std::uint8_t*& cursor, T value) noexcept
+// 固定字节读写在 protocol.cpp；模板只负责把 C++ 字段映射到位模式。
+class PayloadWriter
 {
-    using Bits = std::conditional_t<sizeof(T) == 1, std::uint8_t,
-                 std::conditional_t<sizeof(T) == 2, std::uint16_t, std::uint32_t>>;
-    const auto bits = std::bit_cast<Bits>(value);
-    for (std::size_t i = sizeof(T); i > 0; --i)
-    {
-        *cursor++ = static_cast<std::uint8_t>(bits >> ((i - 1) * 8));
-    }
-}
+  public:
+    PayloadWriter(std::span<std::uint8_t> payload, std::size_t bool_count) noexcept;
 
-template <typename T>
-void read(const std::uint8_t*& cursor, T& value) noexcept
+    void write_bool(bool value) noexcept;
+    void write_u8(std::uint8_t value) noexcept;
+    void write_u16(std::uint16_t value) noexcept;
+    void write_u32(std::uint32_t value) noexcept;
+
+  private:
+    std::span<std::uint8_t> payload_;
+    std::size_t bool_index_{};
+    std::size_t cursor_{};
+};
+
+class PayloadReader
 {
-    using Bits = std::conditional_t<sizeof(T) == 1, std::uint8_t,
-                 std::conditional_t<sizeof(T) == 2, std::uint16_t, std::uint32_t>>;
-    Bits bits = 0;
-    for (std::size_t i = 0; i < sizeof(T); ++i)
-    {
-        bits = static_cast<Bits>((static_cast<std::uint32_t>(bits) << 8) | *cursor++);
-    }
-    value = std::bit_cast<T>(bits);
-}
+  public:
+    PayloadReader(std::span<const std::uint8_t> payload,
+                  std::size_t bool_count) noexcept;
+
+    bool read_bool() noexcept;
+    std::uint8_t read_u8() noexcept;
+    std::uint16_t read_u16() noexcept;
+    std::uint32_t read_u32() noexcept;
+
+  private:
+    std::span<const std::uint8_t> payload_;
+    std::size_t bool_index_{};
+    std::size_t cursor_{};
+};
+
+void finish_frame(std::span<std::uint8_t> output,
+                  std::uint8_t command) noexcept;
 
 } // namespace detail
 
@@ -151,8 +162,50 @@ namespace detail
 {
 
 //======================================================
-// 打包与解包：由 Protocol 调用
+// 模板连接层：字段布局在编译期确定
 //======================================================
+
+template <typename T>
+void write_field(PayloadWriter& writer, T value) noexcept
+{
+    if constexpr (std::is_same_v<T, float>)
+    {
+        writer.write_u32(std::bit_cast<std::uint32_t>(value));
+    }
+    else if constexpr (sizeof(T) == 1)
+    {
+        writer.write_u8(std::bit_cast<std::uint8_t>(value));
+    }
+    else if constexpr (sizeof(T) == 2)
+    {
+        writer.write_u16(std::bit_cast<std::uint16_t>(value));
+    }
+    else
+    {
+        writer.write_u32(std::bit_cast<std::uint32_t>(value));
+    }
+}
+
+template <typename T>
+void read_field(PayloadReader& reader, T& value) noexcept
+{
+    if constexpr (std::is_same_v<T, float>)
+    {
+        value = std::bit_cast<float>(reader.read_u32());
+    }
+    else if constexpr (sizeof(T) == 1)
+    {
+        value = std::bit_cast<T>(reader.read_u8());
+    }
+    else if constexpr (sizeof(T) == 2)
+    {
+        value = std::bit_cast<T>(reader.read_u16());
+    }
+    else
+    {
+        value = std::bit_cast<T>(reader.read_u32());
+    }
+}
 
 template <WireField... T>
 [[nodiscard]] auto pack(std::uint8_t command, const T&... fields) noexcept
@@ -161,41 +214,25 @@ template <WireField... T>
     static_assert(size <= kMaxPayloadSize, "payload exceeds 100 bytes");
 
     std::array<std::uint8_t, size + kFrameOverhead> output{};
-    output[0] = 0xA5;
-    output[1] = 0x5A;
-    output[2] = static_cast<std::uint8_t>(size);
-    output[3] = command;
-
-    std::size_t bit = 0;
+    PayloadWriter writer({output.data() + 4, size}, count<0, T...>());
     [[maybe_unused]] const auto write_bool = [&](bool value) noexcept
     {
-        if (value)
-        {
-            output[4 + bit / 8] |= static_cast<std::uint8_t>(1U << (bit % 8));
-        }
-        ++bit;
+        writer.write_bool(value);
     };
-    (visit<0>(fields, write_bool), ...);
-
-    auto* cursor = output.data() + 4 + (count<0, T...>() + 7) / 8;
     [[maybe_unused]] const auto write_value = [&](auto value) noexcept
     {
-        write(cursor, value);
+        write_field(writer, value);
     };
+    (visit<0>(fields, write_bool), ...);
     (visit<1>(fields, write_value), ...);
     (visit<2>(fields, write_value), ...);
     (visit<3>(fields, write_value), ...);
     (visit<4>(fields, write_value), ...);
-
-    // CRC 保护长度、命令和数据；帧头、CRC 自身、帧尾不参与。
-    const auto crc = crc16({output.data() + 2, size + 2});
-    *cursor++ = static_cast<std::uint8_t>(crc >> 8);
-    *cursor++ = static_cast<std::uint8_t>(crc);
-    *cursor = 0xFF;
+    finish_frame(output, command);
     return output;
 }
 
-// payload 仅在 Parser 回调期间有效。
+// payload 仅在 Parser 成功解析后、consume() 前有效。
 struct FrameView
 {
     std::uint8_t command{};
@@ -211,24 +248,17 @@ struct FrameView
         {
             return false;
         }
-        if constexpr (size == 0)
-        {
-            return true;
-        }
 
-        std::size_t bit = 0;
+        PayloadReader reader(payload, count<0, T...>());
         [[maybe_unused]] const auto read_bool = [&](bool& value) noexcept
         {
-            value = (payload[bit / 8] & (1U << (bit % 8))) != 0;
-            ++bit;
+            value = reader.read_bool();
         };
-        (visit<0>(fields, read_bool), ...);
-
-        const auto* cursor = payload.data() + (count<0, T...>() + 7) / 8;
         [[maybe_unused]] const auto read_value = [&](auto& value) noexcept
         {
-            read(cursor, value);
+            read_field(reader, value);
         };
+        (visit<0>(fields, read_bool), ...);
         (visit<1>(fields, read_value), ...);
         (visit<2>(fields, read_value), ...);
         (visit<3>(fields, read_value), ...);
@@ -237,94 +267,19 @@ struct FrameView
     }
 };
 
-//======================================================
-// 串口字节流解析：固定容量、每路串口一个实例
-//======================================================
-
-template <std::size_t MaxPayload = kMaxPayloadSize>
+// 每路串口一个解析器；字节扫描与缓存管理实现在 protocol.cpp。
 class Parser
 {
-    static_assert(MaxPayload <= 255, "payload length is one byte");
-
   public:
-    void reset() noexcept
-    {
-        size_ = 0;
-    }
-
-    template <typename OnFrame>
-    void feed(std::span<const std::uint8_t> bytes, OnFrame&& on_frame)
-    {
-        for (const auto byte : bytes)
-        {
-            if (size_ == buffer_.size())
-            {
-                discard(1);
-            }
-            buffer_[size_++] = byte;
-
-            while (size_ != 0)
-            {
-                if (buffer_[0] != 0xA5)
-                {
-                    discard(1);
-                    continue;
-                }
-                if (size_ < 2)
-                {
-                    break;
-                }
-                if (buffer_[1] != 0x5A)
-                {
-                    discard(1);
-                    continue;
-                }
-                if (size_ < 3)
-                {
-                    break;
-                }
-
-                const std::size_t length = buffer_[2];
-                if (length > MaxPayload)
-                {
-                    discard(1);
-                    continue;
-                }
-                const auto total = length + kFrameOverhead;
-                if (size_ < total)
-                {
-                    break;
-                }
-
-                const auto payload =
-                    std::span<const std::uint8_t>{buffer_.data() + 4, length};
-                const auto received_crc = static_cast<std::uint16_t>(
-                    (static_cast<std::uint16_t>(buffer_[length + 4]) << 8) |
-                    buffer_[length + 5]);
-                const auto expected_crc = crc16({buffer_.data() + 2, length + 2});
-                if (buffer_[total - 1] != 0xFF || received_crc != expected_crc)
-                {
-                    discard(1);
-                    continue;
-                }
-
-                on_frame(FrameView{buffer_[3], payload});
-                discard(total);
-            }
-        }
-    }
+    void reset() noexcept;
+    void append(std::uint8_t byte) noexcept;
+    [[nodiscard]] bool next(FrameView& frame) noexcept;
+    void consume() noexcept;
 
   private:
-    void discard(std::size_t count) noexcept
-    {
-        size_ -= count;
-        if (size_ != 0)
-        {
-            std::memmove(buffer_.data(), buffer_.data() + count, size_);
-        }
-    }
+    void discard(std::size_t count) noexcept;
 
-    std::array<std::uint8_t, MaxPayload + kFrameOverhead> buffer_{};
+    std::array<std::uint8_t, kMaxPayloadSize + kFrameOverhead> buffer_{};
     std::size_t size_{};
 };
 
@@ -494,19 +449,16 @@ class Protocol
 
     void feed(std::span<const std::uint8_t> bytes)
     {
-        parser_.feed(bytes, [this](const detail::FrameView& frame)
+        for (const auto byte : bytes)
         {
-            bool handled = false;
-            const auto visit = [&](auto& entry)
+            parser_.append(byte);
+            detail::FrameView frame{};
+            while (parser_.next(frame))
             {
-                if (!handled && entry.command() == frame.command)
-                {
-                    handled = true;
-                    entry.handle(frame);
-                }
-            };
-            std::apply([&](auto&... entries) { (visit(entries), ...); }, dispatches_);
-        });
+                dispatch_frame(frame);
+                parser_.consume();
+            }
+        }
     }
 
     void reset() noexcept
@@ -515,8 +467,22 @@ class Protocol
     }
 
   private:
+    void dispatch_frame(const detail::FrameView& frame)
+    {
+        bool handled = false;
+        const auto visit = [&](auto& entry)
+        {
+            if (!handled && entry.command() == frame.command)
+            {
+                handled = true;
+                entry.handle(frame);
+            }
+        };
+        std::apply([&](auto&... entries) { (visit(entries), ...); }, dispatches_);
+    }
+
     std::tuple<Dispatches...> dispatches_;
-    detail::Parser<> parser_;
+    detail::Parser parser_;
 };
 
 template <typename... Dispatches>
