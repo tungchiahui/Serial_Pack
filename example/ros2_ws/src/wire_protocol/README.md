@@ -138,20 +138,20 @@ DATA 配置。线上不携带字段类型信息：长度相同但 schema 不同�
 
 ## STM32 与构建
 
-协议为头文件库，内核不使用 `new`、`std::function`、`std::vector`、异常、RTTI 或虚函数。
+协议由 `include/wire_protocol/protocol.hpp` 和 `src/protocol.cpp` 组成，
+不使用 `new`、`std::function`、`std::vector`、异常、RTTI 或虚函数。
 `std::array` 和 `std::tuple` 均为对象内固定存储；`std::span` 只借用接收数据。
 STM32 工具链需提供 C++20 的 `std::span`、`std::bit_cast`、concepts 和 `std::invoke`。
 通常在主循环／任务中喂入 DMA 接收片段；如直接把 `pack()` 返回数组交给 UART DMA，
 数组必须活到 DMA 发送完成。
 
 ```sh
-cmake -S src/wire_protocol -B /tmp/wire_protocol-build \
-  -DWIRE_PROTOCOL_BUILD_TESTS=ON -DWIRE_PROTOCOL_BUILD_EXAMPLES=ON
+cmake -S src/wire_protocol -B /tmp/wire_protocol-build
 cmake --build /tmp/wire_protocol-build
-ctest --test-dir /tmp/wire_protocol-build --output-on-failure
 ```
 
-可直接拷贝 `include/wire_protocol`，或通过 `add_subdirectory(...)`、
+STM32 工程需要同时加入头文件和 `src/protocol.cpp`。CMake 工程可通过
+`add_subdirectory(...)`、
 `find_package(wire_protocol CONFIG REQUIRED)` 引入并链接
 `wire_protocol::wire_protocol`。`package.xml` 只供 colcon 发现普通 CMake 包，
-构建本身不要求 ament。查看 [examples/basic.cpp](examples/basic.cpp) 获取可执行示例。
+构建本身不要求 ament。

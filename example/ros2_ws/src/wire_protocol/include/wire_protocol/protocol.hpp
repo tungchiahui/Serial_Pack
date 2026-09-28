@@ -112,20 +112,7 @@ void visit(T& field, Function&& function) noexcept
     }
 }
 
-inline std::uint16_t crc16(std::span<const std::uint8_t> bytes) noexcept
-{
-    std::uint16_t crc = 0xFFFF;
-    for (const auto byte : bytes)
-    {
-        crc ^= byte;
-        for (int bit = 0; bit < 8; ++bit)
-        {
-            crc = static_cast<std::uint16_t>(
-                (crc >> 1) ^ ((crc & 1) ? 0xA001 : 0));
-        }
-    }
-    return crc;
-}
+std::uint16_t crc16(std::span<const std::uint8_t> bytes) noexcept;
 
 template <typename T>
 void write(std::uint8_t*& cursor, T value) noexcept
