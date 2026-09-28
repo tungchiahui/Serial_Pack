@@ -36,8 +36,14 @@ class Serial_Node: public rclcpp::Node
       serial_driver_.start(serial_config_, std::bind(&Serial_Node::serial_receive_callback,this,std::placeholders::_1));
 
       //串口包协议回调函数设置
-      const bool ok1 = protocol_.set_unpack_callback(0x01, &Serial_Node::handle_cmd_vel, this);
-      const bool ok2 = protocol_.set_unpack_callback(0x02, &Serial_Node::handle_set_mode, this);
+      if(!protocol_.set_unpack_callback(0x01, &Serial_Node::handle_cmd_vel, this))
+      {
+        return;
+      }
+      if(!protocol_.set_unpack_callback(0x02, &Serial_Node::handle_set_mode, this))
+      {
+        return;
+      }
 
       // 创建两个定时器模拟两个 topic
       //模拟/cmd_vel这种高频消息
@@ -66,12 +72,7 @@ class Serial_Node: public rclcpp::Node
 
     void serial_receive_callback(std::span<const uint8_t> msg)
     {
-      std::string str(
-          reinterpret_cast<const char*>(msg.data()),
-          msg.size()
-      );
-
-      RCLCPP_INFO(this->get_logger(),"接收到: %s",str.c_str());
+      protocol_.feed(msg);
     }
 
     void timer1_callback()
