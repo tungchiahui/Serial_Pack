@@ -1,7 +1,9 @@
 #include "rclcpp/rclcpp.hpp"
 #include "serial_transport/serial_transport.hpp"
+#include <wire_protocol/protocol.hpp>
 #include <functional>
 #include <rclcpp/logging.hpp>
+
 
 using namespace std::chrono_literals;
 
@@ -81,15 +83,7 @@ class Serial_Node: public rclcpp::Node
       fp32_vec.push_back(vy);
       fp32_vec.push_back(wz);
 
-      // 单纯测试 serial_transport 能不能正确发送字节
-      std::vector<uint8_t> frame{
-          0xA5,
-          0x5A,
-          0x01,
-          0x02,
-          0x03,
-          0xFF
-      };
+      
                 
       //异步发送数据
       serial_driver.async_write(frame);

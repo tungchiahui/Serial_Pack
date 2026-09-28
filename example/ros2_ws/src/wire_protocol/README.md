@@ -1,6 +1,7 @@
 # wire_protocol
 
-纯 C++20、无 ROS 依赖的定长串口协议。主 API 只有：
+协议核心是纯 C++20，不引用 ROS 头文件；在 ROS 2 工作区中使用
+`ament_cmake` 打包。主 API 只有：
 
 ```text
 wire_protocol::dispatch(command, handler)
@@ -147,13 +148,13 @@ STM32 工具链需提供 C++20 的 `std::span`、`std::bit_cast`、concepts 和 
 通常在主循环／任务中喂入 DMA 接收片段；如直接把 `pack()` 返回数组交给 UART DMA，
 数组必须活到 DMA 发送完成。
 
+在 ROS 2 工作区根目录执行：
+
 ```sh
-cmake -S src/wire_protocol -B /tmp/wire_protocol-build
-cmake --build /tmp/wire_protocol-build
+colcon build --packages-select wire_protocol
 ```
 
-STM32 工程需要同时加入头文件和 `src/protocol.cpp`。CMake 工程可通过
-`add_subdirectory(...)`、
-`find_package(wire_protocol CONFIG REQUIRED)` 引入并链接
-`wire_protocol::wire_protocol`。`package.xml` 只供 colcon 发现普通 CMake 包，
-构建本身不要求 ament。
+其他 ROS 2 包在 `package.xml` 中声明 `<depend>wire_protocol</depend>`，
+在 CMake 中使用 `find_package(wire_protocol REQUIRED)` 和
+`ament_target_dependencies(目标名 wire_protocol)`。STM32 工程需要同时加入
+`include/wire_protocol/protocol.hpp` 和 `src/protocol.cpp`，不需要 ROS 或 ament。
