@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>wire_protocol</name>
+  <version>0.1.0</version>
+  <description>Allocation-free C++20 serial wire protocol for host and STM32.</description>
+  <maintainer email="tungchiahui@gmail.com">tungchiahui</maintainer>
+  <license>Apache-2.0</license>
+  <export><build_type>cmake</build_type></export>
+</package>
