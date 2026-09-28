@@ -24,16 +24,20 @@ class Serial_Node: public rclcpp::Node
       this->declare_parameter<int>("baud_rate", 115200);
 
       //参数读取
-      serial_config.port_name_ = this->get_parameter("port").as_string();
-      serial_config.baud_rate_ = this->get_parameter("baud_rate").as_int();
+      serial_config_.port_name_ = this->get_parameter("port").as_string();
+      serial_config_.baud_rate_ = this->get_parameter("baud_rate").as_int();
       //硬参数
-      serial_config.character_size_ = 8;
-      serial_config.parity_ = asio::serial_port_base::parity::none;
-      serial_config.stop_bits_ = asio::serial_port_base::stop_bits::one;
-      serial_config.flow_control_ = asio::serial_port_base::flow_control::none;
+      serial_config_.character_size_ = 8;
+      serial_config_.parity_ = asio::serial_port_base::parity::none;
+      serial_config_.stop_bits_ = asio::serial_port_base::stop_bits::one;
+      serial_config_.flow_control_ = asio::serial_port_base::flow_control::none;
 
       //开启串口与串口异步接收
-      serial_driver.start(serial_config, std::bind(&Serial_Node::serial_receive_callback,this,std::placeholders::_1));
+      serial_driver_.start(serial_config_, std::bind(&Serial_Node::serial_receive_callback,this,std::placeholders::_1));
+
+      //串口包协议回调函数设置
+      const bool ok1 = protocol_.set_unpack_callback(0x01, &Serial_Node::handle_cmd_vel, this);
+      const bool ok2 = protocol_.set_unpack_callback(0x02, &Serial_Node::handle_set_mode, this);
 
       // 创建两个定时器模拟两个 topic
       //模拟/cmd_vel这种高频消息
@@ -51,10 +55,10 @@ class Serial_Node: public rclcpp::Node
   private:
     void handle_cmd_vel(std::uint32_t seq, float vx, float vy, float wz)
     {
-
+      
     }
 
-    void handle_mode(std::uint32_t seq, std::int32_t mode)
+    void handle_set_mode(std::uint32_t seq, std::int32_t mode)
     {
 
     }
@@ -86,18 +90,10 @@ class Serial_Node: public rclcpp::Node
 
       RCLCPP_DEBUG(this->get_logger(),"[ROS] cmd_vel: seq=%u, vx=%.2f, vy=%.2f, wz=%.2f",seq,vx,vy,wz);
       
-      std::vector<std::int32_t> int32_vec;
-      int32_vec.push_back(std::bit_cast<std::int32_t>(seq));
-
-      std::vector<fp32> fp32_vec;
-      fp32_vec.push_back(vx);
-      fp32_vec.push_back(vy);
-      fp32_vec.push_back(wz);
-
-      
+      auto frame = protocol_.pack(0x01, seq,vx,vy,wz);
                 
       //异步发送数据
-      serial_driver.async_write(frame);
+      serial_driver_.async_write(frame);
     }
 
     void timer2_callback()
@@ -110,21 +106,14 @@ class Serial_Node: public rclcpp::Node
         mode_ = 0;
       }
 
-      RCLCPP_DEBUG(this->get_logger(),"[set_mode] mode=%d",mode_);
-
       uint32_t seq = ++event_count_;
-      int32_t mode = mode_;
 
-      std::vector<int32_t> int32_vec;
-      int32_vec.push_back(std::bit_cast<std::int32_t>(seq));
-      int32_vec.push_back(mode);
+      RCLCPP_DEBUG(this->get_logger(),"[set_mode] seq = %u,mode=%d",seq,mode_);
 
-
-      std::vector<uint8_t> frame;
-      frame.push_back(0x66);
+      auto frame = protocol_.pack(0x02, seq,mode_);
 
       //异步发送数据
-      serial_driver.async_write(frame);
+      serial_driver_.async_write(frame);
       }
 
     //ROS
@@ -132,9 +121,11 @@ class Serial_Node: public rclcpp::Node
     rclcpp::TimerBase::SharedPtr timer2_;
 
     //Serial
-    serial_transport::Serial_Config serial_config;
-    serial_transport::SerialTransport serial_driver;
-
+    serial_transport::Serial_Config serial_config_;
+    serial_transport::SerialTransport serial_driver_;
+    
+    //Protocol
+    wire_protocol::CallbackProtocol protocol_;
 
     //模拟数据
     uint64_t cmd_count_{0};

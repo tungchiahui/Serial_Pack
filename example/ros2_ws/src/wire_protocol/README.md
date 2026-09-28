@@ -1,107 +1,97 @@
 # wire_protocol
 
 协议核心是纯 C++20，不引用 ROS 头文件；在 ROS 2 工作区中使用
-`ament_cmake` 打包。主 API 只有：
+`ament_cmake` 打包。推荐用 `CallbackProtocol`：创建对象后注册命令处理函数，
+接收端只需调用 `feed()`，发送端调用 `pack()`。
 
-```text
-wire_protocol::dispatch(command, handler)
-wire_protocol::make_protocol(dispatch...)
-protocol.pack(command, fields...)
-protocol.feed(bytes)
-protocol.reset()
-```
-
-handler 的参数类型就是该命令的 payload schema。协议从签名推导字段数量与类型；
-业务层不必接触 Parser、Frame、payload、字段计数或手动解包。
-
-## 基本用法
+## 固定容量回调 API
 
 ```cpp
 #include <wire_protocol/protocol.hpp>
 
-void handle_cmd_vel(std::uint32_t seq, float vx, float vy, float wz)
-{
-    // 处理速度命令
-}
-
-void handle_mode(std::uint32_t seq, std::int32_t mode)
-{
-    // 处理模式命令
-}
-
-auto protocol = wire_protocol::make_protocol(
-    wire_protocol::dispatch(0x01, handle_cmd_vel),
-    wire_protocol::dispatch(0x02, handle_mode));
-
-// 发送：返回拥有字节的定长 std::array，长度在编译期确定。
-auto tx = protocol.pack(0x01, seq, vx, vy, wz);
-serial_driver.async_write(tx); // 当前 SerialTransport 会复制发送数据
-
-// 串口接收回调中：bytes 是本次收到的 std::span<const uint8_t>。
-protocol.feed(bytes);
-
-// 串口异常、断线、超时或重新连接时丢弃残留半帧。
-protocol.reset();
-```
-
-`protocol` 应与串口连接一样长期存在；每路串口使用独立实例。接收回调不能重入同一个
-`protocol.feed()`，也不要在多个线程或中断中并发调用同一实例。回调应正常返回。
-一个 `feed()` 可包含半包、粘包和噪声。未注册命令、长度不符合 handler schema 的帧会被忽略；
-同一命令注册多次时仅调用第一个。handler 必须在 Protocol 生命周期内保持有效，
-例如成员函数绑定的对象不能先于 Protocol 销毁。
-
-## 类成员函数与 lambda
-
-成员函数按 `dispatch(command, &Class::method, object_pointer)` 注册，支持普通、`const`、
-`noexcept` 和 `const noexcept` 成员函数。捕获 lambda 可直接保存，无类型擦除：
-
-```cpp
-class SerialComm
+class Serial_Node : public rclcpp::Node
 {
   public:
-    SerialComm()
-        : protocol_(wire_protocol::make_protocol(
-              wire_protocol::dispatch(0x01, &SerialComm::handle_cmd_vel, this),
-              wire_protocol::dispatch(0x02, &SerialComm::handle_mode, this)))
+    Serial_Node() : Node("serial_node_cpp")
     {
+        // 先注册，随后再启动串口接收。
+        const bool vel_ok = protocol_.set_unpack_callback(
+            0x01, &Serial_Node::handle_cmd_vel, this);
+        const bool mode_ok = protocol_.set_unpack_callback(
+            0x02, &Serial_Node::handle_mode, this);
+        if (!vel_ok || !mode_ok)
+        {
+            // 命令重复或回调表已满，由上层处理初始化错误。
+        }
     }
 
-    void on_bytes(std::span<const std::uint8_t> bytes)
+  private:
+    void handle_cmd_vel(std::uint32_t seq, float vx, float vy, float wz);
+    void handle_mode(std::uint32_t seq, std::int32_t mode);
+
+    void serial_receive_callback(std::span<const std::uint8_t> bytes)
     {
         protocol_.feed(bytes);
     }
 
-  private:
-    void handle_cmd_vel(std::uint32_t, float, float, float);
-    void handle_mode(std::uint32_t, std::int32_t);
-
-    // 成员变量不能用 auto；在未求值的 decltype 中传一个同类型空指针即可。
-    using ProtocolType = decltype(wire_protocol::make_protocol(
-        wire_protocol::dispatch(0x01, &SerialComm::handle_cmd_vel,
-                                static_cast<SerialComm*>(nullptr)),
-        wire_protocol::dispatch(0x02, &SerialComm::handle_mode,
-                                static_cast<SerialComm*>(nullptr))));
-    ProtocolType protocol_;
+    wire_protocol::CallbackProtocol protocol_;
 };
+
+// 发送时，返回拥有字节的定长 std::array。
+auto tx = protocol_.pack(0x01, seq, vx, vy, wz);
+serial_driver.async_write(tx); // 当前 PC 端 SerialTransport 会复制发送数据
+
+// 串口断开、超时或重新连接时丢弃残留半帧；注册的回调仍保留。
+protocol_.reset();
 ```
 
-如果仅在函数内部使用，也可以直接注册捕获 lambda：
+handler 的参数类型就是该命令的 payload schema。`feed()` 处理帧头、长度、CRC、
+帧尾、半包和粘包，再根据命令自动解包并调用 handler；业务层不需要接触
+Parser、Frame、payload 或字段计数。没有注册的命令及长度不符合 schema 的帧会被忽略。
+handler 必须返回 `void`，字段参数按值传递且类型明确。
+
+还支持普通函数和小型捕获 lambda：
 
 ```cpp
-int calls = 0;
-auto protocol = wire_protocol::make_protocol(
-    wire_protocol::dispatch(0x03,
-        [&calls](std::uint32_t seq, float value)
-        {
-            ++calls;
-            // 处理 seq 和 value
-        }));
+protocol_.set_unpack_callback(0x03, handle_status);
+protocol_.set_unpack_callback(0x04,
+    [this](std::uint32_t seq, float voltage)
+    {
+        handle_voltage(seq, voltage);
+    });
 ```
 
-handler 必须返回 `void`，payload 参数按值传递且有明确类型。
-支持普通函数、普通函数指针、明确参数类型的 lambda/functor 和上述成员函数；
-暂不支持 generic lambda (`auto` 参数)、`std::bind`、引用参数、指针参数或结构体自动序列化。
-`dispatch` 中的 callable 存储在 `Protocol` 的 `std::tuple` 中，编译期确定，无动态注册。
+`CallbackProtocol` 内有 8 个固定槽位，每槽最多存储 32 字节的回调绑定对象。
+重复命令、槽位已满或传入空函数／对象指针时，
+`set_unpack_callback()` 返回 `false`。
+为保证注册过程也不申请堆内存，只接受可平凡复制、移动和销毁的回调；
+`[this]`、小型数值捕获及成员函数绑定可以使用，捕获 `std::string`、`std::vector`
+等非平凡对象会在编译期拒绝。绑定对象超出 32 字节或对齐要求也在编译期拒绝。
+回调本身若执行堆分配操作，不属于协议库能保证的范围。
+
+每路串口使用独立、长期存在的 `CallbackProtocol`。应在开始接收前完成注册；
+不要在 `feed()` 期间重新注册，也不要从多个线程或中断并发访问同一实例。
+注册成员函数时，被绑定的对象在协议使用期间必须保持有效。
+`CallbackProtocol` 不可复制或移动，避免回调对象指针悬空。
+
+## 编译期 dispatch API
+
+原有的 `make_protocol(dispatch(...))` 保留，适合希望回调在构造时完全确定的场景：
+
+```cpp
+auto protocol = wire_protocol::make_protocol(
+    wire_protocol::dispatch(0x01, handle_cmd_vel),
+    wire_protocol::dispatch(0x02, handle_mode));
+
+auto tx = protocol.pack(0x01, seq, vx, vy, wz);
+protocol.feed(bytes);
+protocol.reset();
+```
+
+这个 API 将 handler 类型保存在 `Protocol<...>` 模板参数中，无固定回调容量，
+但作为类成员时需要显式写出类型；`CallbackProtocol` 免去了这部分声明。
+两种 API 共用同一套打包、解包、帧解析和 CRC 代码。
+泛型 lambda（`auto` 参数）、`std::bind`、引用参数、指针参数和结构体自动序列化均不支持。
 
 ## 线格式
 
@@ -140,7 +130,8 @@ DATA 配置。线上不携带字段类型信息：长度相同但 schema 不同�
 ## STM32 与构建
 
 协议由 `include/wire_protocol/protocol.hpp` 和 `src/protocol.cpp` 组成，
-不使用 `new`、`std::function`、`std::vector`、异常、RTTI 或虚函数。
+不使用动态 `new`、`std::function`、`std::vector`、异常、RTTI 或虚函数。
+注册时使用定位 `new` 在对象内部的固定槽位构造回调，不会申请堆内存。
 CRC、帧解析、字节读写和 bool 位打包实现在 cpp；字段长度与类型推导、
 handler 签名推导和静态 dispatch 是模板，保留在 hpp 中供调用方实例化。
 `std::array` 和 `std::tuple` 均为对象内固定存储；`std::span` 只借用接收数据。

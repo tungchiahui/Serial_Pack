@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <new>
 #include <span>
 #include <tuple>
 #include <type_traits>
@@ -494,6 +495,104 @@ template <typename... Dispatches>
     return Protocol<std::decay_t<Dispatches>...>{
         std::forward<Dispatches>(dispatches)...};
 }
+
+//======================================================
+// 固定容量回调协议：构造后注册，不使用动态内存
+//======================================================
+
+class CallbackProtocol
+{
+  public:
+    static constexpr std::size_t kMaxCallbacks = 8;
+    static constexpr std::size_t kCallbackStorageSize = 32;
+
+    CallbackProtocol() = default;
+    CallbackProtocol(const CallbackProtocol&) = delete;
+    CallbackProtocol& operator=(const CallbackProtocol&) = delete;
+    CallbackProtocol(CallbackProtocol&&) = delete;
+    CallbackProtocol& operator=(CallbackProtocol&&) = delete;
+
+    // 返回 false 表示命令重复、回调表已满或传入空函数/对象指针。
+    // 在 feed() 开始前完成注册。
+    template <typename Callable>
+    [[nodiscard]] bool set_unpack_callback(std::uint8_t command,
+                                           Callable&& callback) noexcept
+    {
+        using Stored = std::decay_t<Callable>;
+        using Binding = Dispatch<Stored>;
+        static_assert(std::is_trivially_copy_constructible_v<Stored> &&
+                      std::is_trivially_move_constructible_v<Stored> &&
+                      std::is_trivially_destructible_v<Stored>,
+                      "callback must be trivially copyable and destructible");
+        static_assert(sizeof(Binding) <= kCallbackStorageSize,
+                      "callback exceeds fixed inline storage");
+        static_assert(alignof(Binding) <= alignof(std::max_align_t),
+                      "callback alignment exceeds inline storage");
+        static_assert(std::is_trivially_destructible_v<Binding>,
+                      "callback binding must be trivially destructible");
+
+        if constexpr (std::is_pointer_v<std::remove_reference_t<Callable>>)
+        {
+            if (callback == nullptr)
+            {
+                return false;
+            }
+        }
+
+        auto* entry = free_entry(command);
+        if (entry == nullptr)
+        {
+            return false;
+        }
+        ::new (static_cast<void*>(entry->storage.data()))
+            Binding(command, std::forward<Callable>(callback));
+        entry->command = command;
+        entry->invoke = [](void* data, const detail::FrameView& frame)
+        {
+            auto* binding = std::launder(reinterpret_cast<Binding*>(data));
+            binding->handle(frame);
+        };
+        return true;
+    }
+
+    template <typename Method, typename Object>
+        requires std::is_member_function_pointer_v<Method>
+    [[nodiscard]] bool set_unpack_callback(std::uint8_t command,
+                                           Method method,
+                                           Object* object) noexcept
+    {
+        if (method == nullptr || object == nullptr)
+        {
+            return false;
+        }
+        using Stored = detail::MemberHandler<Method, Object>;
+        return set_unpack_callback(command, Stored{method, object});
+    }
+
+    template <WireField... T>
+    [[nodiscard]] auto pack(std::uint8_t command, const T&... fields) const noexcept
+    {
+        return detail::pack(command, fields...);
+    }
+
+    void feed(std::span<const std::uint8_t> bytes);
+    void reset() noexcept;
+
+  private:
+    struct Entry
+    {
+        alignas(std::max_align_t)
+        std::array<std::byte, kCallbackStorageSize> storage{};
+        void (*invoke)(void*, const detail::FrameView&){};
+        std::uint8_t command{};
+    };
+
+    [[nodiscard]] Entry* free_entry(std::uint8_t command) noexcept;
+    void dispatch_frame(const detail::FrameView& frame);
+
+    std::array<Entry, kMaxCallbacks> entries_{};
+    detail::Parser parser_;
+};
 
 } // namespace wire_protocol
 

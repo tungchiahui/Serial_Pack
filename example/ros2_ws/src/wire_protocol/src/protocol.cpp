@@ -195,3 +195,61 @@ void Parser::consume() noexcept
 }
 
 } // namespace wire_protocol::detail
+
+namespace wire_protocol
+{
+
+//======================================================
+// 固定容量回调表与字节流分发
+//======================================================
+
+CallbackProtocol::Entry* CallbackProtocol::free_entry(
+    std::uint8_t command) noexcept
+{
+    Entry* available = nullptr;
+    for (auto& entry : entries_)
+    {
+        if (entry.invoke != nullptr && entry.command == command)
+        {
+            return nullptr;
+        }
+        if (entry.invoke == nullptr && available == nullptr)
+        {
+            available = &entry;
+        }
+    }
+    return available;
+}
+
+void CallbackProtocol::dispatch_frame(const detail::FrameView& frame)
+{
+    for (auto& entry : entries_)
+    {
+        if (entry.invoke != nullptr && entry.command == frame.command)
+        {
+            entry.invoke(static_cast<void*>(entry.storage.data()), frame);
+            return;
+        }
+    }
+}
+
+void CallbackProtocol::feed(std::span<const std::uint8_t> bytes)
+{
+    for (const auto byte : bytes)
+    {
+        parser_.append(byte);
+        detail::FrameView frame{};
+        while (parser_.next(frame))
+        {
+            dispatch_frame(frame);
+            parser_.consume();
+        }
+    }
+}
+
+void CallbackProtocol::reset() noexcept
+{
+    parser_.reset();
+}
+
+} // namespace wire_protocol
