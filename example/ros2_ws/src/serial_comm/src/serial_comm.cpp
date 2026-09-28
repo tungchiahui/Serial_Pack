@@ -49,6 +49,17 @@ class Serial_Node: public rclcpp::Node
     }
 
   private:
+    void handle_cmd_vel(std::uint32_t seq, float vx, float vy, float wz)
+    {
+
+    }
+
+    void handle_mode(std::uint32_t seq, std::int32_t mode)
+    {
+
+    }
+
+
     void serial_receive_callback(std::span<const uint8_t> msg)
     {
       std::string str(
@@ -123,6 +134,7 @@ class Serial_Node: public rclcpp::Node
     //Serial
     serial_transport::Serial_Config serial_config;
     serial_transport::SerialTransport serial_driver;
+
 
     //模拟数据
     uint64_t cmd_count_{0};
