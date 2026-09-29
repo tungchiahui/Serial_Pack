@@ -59,9 +59,7 @@ class Serial_Node: public rclcpp::Node
   private:
     void handle_cmd_vel(std::uint32_t seq, float vx, float vy, float wz)
     {
-      RCLCPP_INFO_THROTTLE(
-          this->get_logger(), *this->get_clock(), 1000,
-          "[RX cmd_vel] seq=%u vx=%.3f vy=%.3f wz=%.3f",
+      RCLCPP_INFO(this->get_logger(),"[RX cmd_vel] seq=%u vx=%.3f vy=%.3f wz=%.3f",
           static_cast<uint32_t>(seq), vx, vy, wz);
     }
 

@@ -1,5 +1,6 @@
 serial_node_cpp:
   ros__parameters:
+    port: "/dev/ttyUSB0"  # 改成当前串口设备名
     # port: "/dev/pts/5"  # 改成当前串口设备名
-    port: "/tmp/ttyV0"  # 改成当前串口设备名
+    # port: "/tmp/ttyV0"  # 改成当前串口设备名
     baud_rate: 115200
