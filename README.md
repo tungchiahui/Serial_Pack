@@ -8,7 +8,7 @@
 4. Author: Tung Chia-hui
 5. Website: [https://github.com/tungchiahui](https://github.com/tungchiahui)
 6. E-mail: tungchiahui@gmail.com
-7. Organization: SDUT EMIS VinciRobot
+7. Organization: SDUT EMIS VinciRobot && Yanying Robotics Team, Robotics Innovation Club, Yanshan University
 8. Date: 2025-01-12
 9. Future Features: 
     1. None;
