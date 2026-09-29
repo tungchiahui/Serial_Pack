@@ -12,3 +12,5 @@
 8. 构建日期：2025-01-12
 9. 未来功能：
     1. 无
+
+详细教程见：[详细教程](https://www.tungchiahui.cn/wiki/2023-10-05-cplusplus-jiao-xue/2100-0100-0350-chuan-kou-tong-xin-chuan-kou-bao-xie-yi-shi-li)
